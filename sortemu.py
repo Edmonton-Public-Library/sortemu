@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          0.1 - Fix to report items that fall into exception bin (eg no match).
 #          0.0 - Dev.
 #
 ####################################################
@@ -290,11 +291,10 @@ class RuleEngine:
         if my_item.endswith('|'):
             my_item = my_item[:-1]
         item_columns = my_item.split('|')
-        # TODO: add processing to allow the first three rules to fire if the item has holds on the ILS. In the mean
-        # time the script just works on the general case of assuming there are no holds for these items, to see where
+        # The script just works on the general case of assuming there are no holds for these items, to see where
         # they would theoretically fall into.
         # sys.stdout.write('item_array:{0}\n'.format(item_columns))
-        for i in range(1, len(self.rule_column_names)): # instead of sortroute we have an item id.
+        for i in range(1, len(self.rule_column_names)): # instead of sort route we have an item id.
             if i < 5: # put stars in the following positions to match rule columns.
                 item_columns.insert(i, '*')
             if i > 8:
@@ -305,20 +305,27 @@ class RuleEngine:
         if explain:
             sys.stdout.write('item_string:{0}\n'.format(item_string))
         rule_index = 1
+        is_rule_match = False
         for rule in self.rule_table:
+            # TODO: fix so we can optionally handle material with holds.
+            # This skips the first three special rules for handling materials with holds. Just look at the general case
+            # for a given item.
             if rule[1] == 'Y' or rule[1] == 'N':
                 rule_index += 1
                 continue
             result = self.is_rule_match(rule, item_string, explain)
             # result = self.is_rule_match(rule, item_string)
             if result[1]:
-                sys.stdout.write("line {1}: {0}->bin {3}({2}) matches on {4}".format(item_columns[0], rule_index, result[2], result[2][1:], result[3]))
+                sys.stdout.write("line {1}: {0}->bin {3} ({2}) matches on {4}".format(item_columns[0], rule_index, result[2], result[2][1:], result[3]))
                 if explain:
                     sys.stdout.write(", matched on rule '{0}'.\n".format(result[3]))
                 else:
                     sys.stdout.write("\n")
+                is_rule_match = True
                 break
             rule_index += 1
+        if not is_rule_match:
+            sys.stdout.write("line --: {0}->bin E (R-) no rule matches.\n".format(item_columns[0]))
 
 
 def usage():
