@@ -305,7 +305,7 @@ class RuleEngine:
         if explain:
             sys.stdout.write('item_string:{0}\n'.format(item_string))
         rule_index = 1
-        is_rule_match = False
+        rule_match = False
         for rule in self.rule_table:
             # TODO: fix so we can optionally handle material with holds.
             # This skips the first three special rules for handling materials with holds. Just look at the general case
@@ -321,10 +321,10 @@ class RuleEngine:
                     sys.stdout.write(", matched on rule '{0}'.\n".format(result[3]))
                 else:
                     sys.stdout.write("\n")
-                is_rule_match = True
+                rule_match = True
                 break
             rule_index += 1
-        if not is_rule_match:
+        if not rule_match:
             sys.stdout.write("line --: {0}->bin E (R-) no rule matches.\n".format(item_columns[0]))
 
 
