@@ -2,10 +2,8 @@
 ####################################################
 #
 # Python source for project sorteremu_py
-# Purpose:
-# Method:
 #
-# <one line to give the program's name and a brief idea of what it does.>
+# tests and emulates 3M sort matrices.
 #    Copyright (C) 2015  Andrew Nisbet
 #
 # This program is free software; you can redistribute it and/or modify

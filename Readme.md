@@ -10,13 +10,13 @@ The rule functions to define a sort route which just means bin number. If no rul
 sorter and ends up in the exception bin.
 
 Each sorter can have many bins. EPL has sorters ranging from 3 to 11 bins.
-
+```
 +---+---+---+---+---+---+
 |   | 10| 8 | 6 | 4 | 2 |
 | 11|---+---+---+---+---+   <- item travel direction
 |   | 9 | 7 | 5 | 3 | 1 |
 +---+---+---+---+---+---+
-
+```
 Organization of a 11 bin sorter. In this case bin 11 is the exception bin.
 
 Sorter configuration (the sort matrix):
