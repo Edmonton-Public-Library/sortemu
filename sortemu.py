@@ -72,7 +72,7 @@ class Rule:
 # but commonly use 5, 7, and 8. If you add additional rules in 1,2,3,4 or after 8, you can and they will be checked
 # but the script will fail if you don't add positional matching data in your input.
 #
-# Rule engine can read configs specified from text files that have raw screen scraping from the configuration web page.as
+# Rule engine can read configs specified from text files that have raw screen scraping from the configuration web page.
 # TODO: add a switch to specify a URL so the app can scrape the config itself.
 class RuleEngine:
     def __init__(self):
@@ -177,6 +177,33 @@ class RuleEngine:
         for rule in self.rule_table:
             sys.stdout.write("{0}".format(rule))
 
+    # Tests that longer rules appear before shorter rules, since longer rules require stricter adherence, there is
+    # more chance that more lax rules will fire before them, generally speaking.
+    # param:  optional boolean value explain.
+    # return: True if the rules are ordered longest to shortest and False otherwise.
+    def is_check_rule_order(self, explain=True):
+        # Go through each rule and count how many have more than just a '*'. The higher the count the more complex
+        # the rule, the further up the matrix it goes. The one exception is ruels that fire alerts should come first.
+        is_ordered = True
+        line_no = 0
+        current_rank = 15
+        for line in self.rule_table:
+            rank = -1 # The rule name will trigger a rank of '0'.
+            line_no += 1
+            # Holds for ILL, this or that library should come first.
+            if line[1] != '*':
+                rank = len(self.rule_column_names) # set to maximum so they should appear first.
+            else:
+                for column in line:
+                    if len(column) > 1:
+                        rank += 1
+            if rank > current_rank:
+                is_ordered = False
+                sys.stdout.write('** Warning line #{0}:({1}) has {2} comparisons and should above lines with {3}.\n'.format(line_no, line[0], rank, rank -1))
+            else:
+                current_rank = rank
+        return is_ordered
+
     # Checks the rules for errors and possible optimizations.
     # Each rule has a number of qualifiers that must match for the rule to fire. If a rule has fewer qualifiers
     # but appears first, it will fire before a rule with more details, negating the need for the additional complexity.
@@ -203,6 +230,9 @@ class RuleEngine:
         sys.stdout.write('testing for redundant rules.\n')
         self.test_duplicates(explain)
         sys.stdout.write('done.\n')
+        sys.stdout.write('rule order: \n')
+        if self.is_check_rule_order(explain):
+            sys.stdout.write('pass.\n')
 
     # Checks if all the bins are utilized.
     def check_bins(self, explain=False):
