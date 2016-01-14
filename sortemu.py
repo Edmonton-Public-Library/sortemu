@@ -169,7 +169,7 @@ class RuleEngine:
         new_line = re.sub(r'\s+', '|', new_line)
         new_line_list = new_line.split('|')
         # now remove the space after commas
-        sys.stdout.write('Here is my cols:"{0}"\n'.format(new_line_list))
+        # sys.stdout.write('Here is my cols:"{0}"\n'.format(new_line_list))
         return new_line_list
 
     # Displays all the rules in order.
