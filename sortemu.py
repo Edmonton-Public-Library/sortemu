@@ -164,10 +164,12 @@ class RuleEngine:
         new_line = str.replace(line_of_rules, 'Submit', '')
         new_line = str.strip(new_line)
         new_line = str.replace(new_line, ', ', ',')
-        new_line = re.sub('\s+', '|', new_line)
+        # Sometimes people put extra space between the rule and comma.
+        new_line = str.replace(new_line, ' ,', ',')
+        new_line = re.sub(r'\s+', '|', new_line)
         new_line_list = new_line.split('|')
         # now remove the space after commas
-        # print str(new_line_list)
+        sys.stdout.write('Here is my cols:"{0}"\n'.format(new_line_list))
         return new_line_list
 
     # Displays all the rules in order.
@@ -210,7 +212,6 @@ class RuleEngine:
             my_bin_name = self.rule_table[i][0]
             if my_bin_name == 'REJECT' or my_bin_name == 'reject':
                 sys.stdout.write('* WARNING: sort route #{0} is set up to reject materials.\n'.format(i + 1))
-                continue
             bins.append(my_bin_name)
         # now produce a histogram of rules for each bin.
         bin_dict = {}
