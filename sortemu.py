@@ -24,7 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
-#          0.1 - Fix to report items that fall into exception bin (eg no match).
+#          1.0.01 - Fix to report items that fall into exception bin (eg no match).
 #          0.0 - Dev.
 #
 ####################################################
@@ -34,6 +34,7 @@ import os
 import re
 from itertools import product # Produces product of vector of rules for analysis
 
+version = '1.0.01'
 
 # A rule is a object that encapsulates a single AND operation, so represents data from a single column within
 # a configuration file. If a rule is provided as a string it is assumed to be either a single rule or a rule set
@@ -347,7 +348,7 @@ class RuleEngine:
             result = self.is_rule_match(rule, item_string, explain)
             # result = self.is_rule_match(rule, item_string)
             if result[1]:
-                sys.stdout.write("line {1}: {0}->bin {3} ({2}) matches on {4}".format(item_columns[0], rule_index, result[2], result[2][1:], result[3]))
+                sys.stdout.write("{0}->bin {3} ({2}, line {1}) matches on {4}".format(item_columns[0], rule_index, result[2], result[2][1:], result[3]))
                 if explain:
                     sys.stdout.write(", matched on rule '{0}'.\n".format(result[3]))
                 else:
@@ -360,9 +361,10 @@ class RuleEngine:
 
 
 def usage():
-    sys.stderr.write('Usage:\n')
-    sys.stderr.write('  notice.py -i <input_file> -c <config_file>\n')
-    sys.stderr.write('  Processes Symphony reports into printable notice format\n')
+    sys.stdout.write('usage: python sortemu.py [-i<items>] -c[config.file] -e.\n')
+    sys.stdout.write('  Written by Andrew Nisbet for Edmonton Public Library (c) (2016).\n')
+    sys.stdout.write('  See the source header for licensing restrictions.\n')
+    sys.stdout.write('  Version: {0}\n'.format(version))
 
 
 # Take valid command line arguments -b'n', -o, -i, -d, and -h -s.
@@ -384,8 +386,9 @@ def main(argv):
             items_file = arg
         elif opt in "-e":
             explain = True
-    print 'configuration file is = ', config_file
-    sys.stderr.write('running file ' + items_file + '\n')
+
+    sys.stdout.write('configuration file is "{0}"\n'.format(config_file))
+    sys.stdout.write('running file "{0}"\n'.format(items_file))
     if not os.path.isfile(config_file):
         sys.stderr.write("** error: configuration file {0} does not exist.\n".format(config_file))
         sys.exit()
