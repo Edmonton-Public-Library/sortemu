@@ -199,7 +199,7 @@ class RuleEngine:
                         rank += 1
             if rank > current_rank:
                 is_ordered = False
-                sys.stdout.write('** Warning line #{0}:({1}) has {2} comparisons and should above lines with {3}.\n'.format(line_no, line[0], rank, rank -1))
+                sys.stdout.write('** Warning line #{0}:({1}) has {2} comparisons and should move above lines with {3}.\n'.format(line_no, line[0], rank, rank -1))
             else:
                 current_rank = rank
         return is_ordered
