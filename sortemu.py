@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.1.00 - Add checks for correct item type and location names.
 #          1.0.01 - Fix to report items that fall into exception bin (eg no match).
 #          0.0 - Dev.
 #
@@ -34,7 +35,112 @@ import os
 import re
 from itertools import product # Produces product of vector of rules for analysis
 
-version = '1.0.01'
+version = '1.1.00'
+
+# Allows testing of item locations from the ILS.
+# TODO: update with live information from the ILS.
+class Location:
+    def __init__(self):
+        self.locations = {
+            "STACKS" :1, "CHECKEDOUT" :2, "HOLDS": 3, "ON-ORDER":4, "UNKNOWN":5, "REFERENCE" :6, "MISSING":7, "LOST": 8,
+            "BINDERY" :9, "INPROCESS" :10, "DISCARD":11, "INTRANSIT" :12, "ILL": 13, "RESERVES":14, "CATALOGING" :15,
+            "LOST-PAID" :16, "REPAIR": 17, "RESHELVING" :18, "ADULTCOLL" :19, "4ALLAGES":20, "ALTALEG":21,
+            "ALTALIT" :22, "ANNUALREPT" :23, "ATLAS": 24, "ATLASREF":25, "AVCOLL": 26, "AVREF": 27, "AVSEASONAL" :28,
+            "BUSINESREF" :29, "LONGOVRDUE" :30, "BUSINESS":31, "BUSREF01":32, "BUSREF10":33, "BUSREF11":34,
+            "BUSREF12" :35, "BUSREF13":36, "GOVMAG": 37, "BUSREF15":38, "BUSREF16":39, "BUSREF17":40, "BUSREF18":41,
+            "BUSREF19" :42, "BUSREF02":43, "BUSREF20":44, "GOVFWORKS" :45, "BUSREF22":46, "BUSREF23":47, "BUSREF24":48,
+            "BUSREF25" :49, "BUSREF26":50, "BUSREF27":51, "BUSREF28":52, "BUSREF29":53, "BUSREF03":54, "GOVFLAW":55,
+            "GOVFDIREC" :56, "GOVFECONO" :57, "GOVFDEMOG" :58, "GOVFSTATS" :59, "BUSREF35":60, "BUSREF36":61,
+            "BUSREF37" :62, "BUSREF38":63, "BUSREF39":64, "BUSREF04":65, "BUSREF40":66, "BUSREF41":67, "BUSREF42":68,
+            "BUSREF05" :69, "BUSREF06":70, "BUSREF07":71, "BUSREF08":72, "BUSREF09":73, "CANC_ORDER" :74,
+            "CAREER" :75, "CAREERREF" :76, "CENSUS": 77, "CHILDINFO" :78, "CITYDIR":79, "CITYDIRREF" :80, "COMMNITY":81,
+            "COMMNTYREF" :82, "COMMONS":83, "CONSUMER":84, "CONSUMREF" :85, "DESKINFO":86, "DESKMAGS":87, "DESKREAD":88,
+            "DESKTELINF" :89, "DISPLAY":90, "DIVISION1" :91, "EDMCOUN":92, "ENCYCLOP":93, "EPLACQ": 94, "EPLBINDERY" :95,
+            "EPLCATALOG" :96, "EPLILL": 97, "ESL": 98, "COMICBOOK" :99, "FAIRYTALE" :100, "FICCLASSIC" :101,
+            "FICFANTASY" :102, "FICHISTOR" :103, "FICMYSTERY" :104, "FICROMANCE" :105, "FICSCIENCE" :106,
+            "FICWESTERN" :107, "FRENCH": 108, "GENERAL":109, "GOVPUB": 110, "HALLOWEEN" :111, "EASTER": 112,
+            "CHRISTMAS" :113, "VALENTINE" :114, "THANKSGIVI" :115, "FLICKTUNE" :116, "HERITGNOVR" :117,
+            "HERITOVRSZ" :118, "HEALTHREF" :119, "JUVOTHLANG" :120, "STATSCAN":121, "JUVFRENCH" :122, "JUVGRAPHIC" :123,
+            "TEENGRAPHC" :124, "LARGEPRMYS" :125, "LARGEPRROM" :126, "LARGEPRWES" :127, "STUDYGUIDE" :128,
+            "HERITAGE" :129, "HERITATLAS" :130, "HERITCITYD" :131, "HERITGNLGY" :132, "HERITINDEX" :133, "HOMEWORK":134,
+            "INCOMPLETE" :135, "INDEX": 136, "INTERNET":137, "JANESCOLL" :138, "JUVCOLL":139, "JUVCONCEPT" :140,
+            "JUVICANRD" :141, "JUVPOETRY" :142, "JUVREF": 143, "JUVSEASONL" :144, "LADCOLL":145, "LADDESK":146,
+            "LARGEPRINT" :147, "LAW": 148, "LITERACY":149, "MAGAZINES" :150, "MUSICMAG":151, "NONFICTION" :152,
+            "OFFICE" :153, "OTHERLANG" :154, "OVERSIZE":155, "PAMPHLET":156, "PARENTS":157, "SEASONAL":158,
+            "SENATE" :159, "SHORTSTORY" :160, "SPOKENBUSI" :161, "SPOKENHLTH" :162, "SPOKENINTP" :163, "SPOKENLANG" :164,
+            "SPOKENMUSI" :165, "STANDARDS" :166, "STORAGE":167, "STORAGEHER" :168, "STORAGEREF" :169, "STORYTIME" :170,
+            "TEENCOLL" :171, "TREATIES":172, "YRCA": 173, "BUSREF44":174, "BUSREF47":175, "DAMAGE": 176, "FICGRAPHIC" :177,
+            "BARCGRAVE" :178, "NON-ORDER" :179, "SENIORS":180, "LOST-ASSUM" :181, "LOST-CLAIM" :182, "JUVCLASSIC" :183,
+            "ABORIGINAL" :184, "PROGRAM":185, "BESTSELLER" :186, "REF-ORDER" :187, "JBESTSELLR" :188, "STORAGEGOV" :189,
+            "TEENWORLDL" :190, "AVAIL_SOON" :191, "INSHIPPING" :192, "FICGENERAL" :193, "JPBK": 194, "PBK": 195,
+            "TPBK" :196, "PBKNF": 197, "JUVVIDGAME" :198, "TEENVIDGME" :199, "MUSIC": 200, "REFMAG": 201,
+            "AUDIOBOOK" :202, "CHRISMUSIC" :203, "STOLEN": 204, "JUVPIC": 205, "JUVFIC": 206, "JUVNONF":207,
+            "CUSTSERVIC" :208, "INVSTLTR":209, "VIDGAMES":210, "NOF": 211, "MAKER": 212, "EPL2GO": 213, "FICOVER":214,
+            "PBKCLA" :215, "PBKFAN": 216, "PBKHIR": 217, "PBKHOR": 218, "PBKINS": 219, "PBKMYS": 220, "PBKROM": 221,
+            "PBKSCIFI" :222, "PBKTHR": 223, "PBKWES": 224, "TEENFIC":225, "TPBKSER":226, "NEWS": 227, "JUVBOARD":228,
+            "JUVLPR" :229, "EASYENGL":230, "JUVOVRNF":231, "JUVOVRFIC" :232, "NFOVER": 233, "BRAILLE":234, "DAISY": 235,
+            "LARGEPRFAN" :236, "LARGEPRNF" :237, "TEENFOVR":238, "JUVMAG": 239, "JUVCDBK":240, "JPBKSER":241,
+            "JPBKBCH" :242, "JPBKBCHSER" :243, "JUVFAMLNG" :244, "JUVMOVIE":245, "EMOVIE": 246, "JUVFILMNF" :247,
+            "JUVFILMWL" :248, "JUVMUSIC":249, "JUVSPOKEN" :250, "MOVIES": 251, "FILMWL": 252, "JMOVIESOVR" :253,
+            "LARGEPRSCI" :254, "LARGEPRHI" :255, "MOVIESOVR" :256, "MUSICOVR":257, "JMUSICOVR" :258, "AUDBKOVR":259,
+            "JSPOKENOVR" :260, "EPL2GO2":261, "WLAUDIOBKS" :262
+        }
+
+    # Reports if the argument string is a valid location name in the ILS.
+    # param:  none.
+    # return: True if there is a location in the ILS that matches the argument and False otherwise.
+    def has_location(self, location_name):
+        if not self.locations.has_key(location_name):
+            # May be a star
+            if location_name == '*':
+                return True
+            # could be a location wild card like FIC*
+            if location_name[-1] == '*':
+                for location in self.locations.keys():
+                    if location.startswith(location_name[:-1]):
+                        return True
+            else: # not a star, no match on valid name
+                return False
+        else:
+            return True
+
+# Allows testing of item types from the ILS.
+# TODO: update with live information from the ILS.
+class Itype:
+    def __init__(self):
+        self.types = {
+            "UNKNOWN" :1, "ILL-BOOK":2, "AV": 3, "AV-EQUIP":4, "BOOK": 5, "MAGAZINE":6, "MICROFORM" :7, "NEWSPAPER" :8,
+            "NEW-BOOK" :9, "REF-BOOK":10, "BRAILLE":11, "CASSETTE":12, "CD": 13, "DVD21": 14, "DVD7": 15, "EQUIPMENT" :16,
+            "E-RESOURCE" :17, "JBOOK": 18, "JBRAILLE":19, "JCASSETTE" :20, "JCD": 21, "JDVD21": 22, "JDVD7": 23,
+            "JLARGEPRNT" :24, "JMUSICSCOR" :25, "JPAPERBACK" :26, "JPERIODICL" :27, "JREFBOOK":28, "JTALKBKMED" :29,
+            "JTALKINGBK" :30, "JVIDEO21":31, "JVIDEO7":32, "LARGEPRINT" :33, "MUSICSCORE" :34, "PAMPHLET":35,
+            "PAPERBACK" :36, "PERIODICAL" :37, "TALKBKMED" :38, "TALKINGBK" :39, "VIDEO21":40, "VIDEO7": 41,
+            "DAISYRD" :42, "BESTSELLER" :43, "COMIC": 44, "JBESTSELLR" :45, "FLICKTUNE" :46, "JFLICKTUNE" :47,
+            "OTHLANGBK" :48, "JOTHLANGBK" :49, "RFIDSCANNR" :50, "BKCLUBKIT" :51, "JKIT": 52, "FLICKSTOGO" :53,
+            "TUNESTOGO" :54, "JFLICKTOGO" :55, "JTUNESTOGO" :56, "PROGRAMKIT" :57, "DAISYTB":58, "JDAISYTB":59,
+            "JPBK" :60, "PBK": 61, "JVIDGAME":62, "REFPERDCL" :63, "GOVERNMENT" :64, "LAPTOP": 65, "BLU-RAY":66,
+            "BLU-RAY21" :67, "JBLU-RAY":68, "JBLU-RAY21" :69, "EREADER":70, "PROGRAM6WK" :71, "LEASEDBK":72,
+            "JLEASEDBK" :73, "TABLET": 74, "VIDGAME":75, "PEDOMETER" :76, "MAKERKIT":77, "SBKCLUBKIT" :78
+        }
+
+    # Reports if the argument string is a valid item type in the ILS.
+    # param:  none.
+    # return: True if there is a item type in the ILS that matches the argument and False otherwise.
+    def has_type(self, itype):
+        if not self.types.has_key(itype):
+            # May be a star
+            if itype == '*':
+                return True
+            # could be a location wild card like BLUE-RAY*
+            if itype[-1] == '*':
+                for location in self.types.keys():
+                    if location.startswith(itype[:-1]):
+                        return True
+            else: # not a star, no match on valid name
+                return False
+        else:
+            return True
+
 
 # A rule is a object that encapsulates a single AND operation, so represents data from a single column within
 # a configuration file. If a rule is provided as a string it is assumed to be either a single rule or a rule set
@@ -120,6 +226,46 @@ class RuleEngine:
                     master_rule_map[rule_string] = rule_name
             # Put the route name back on the list for reference later during item check.
             line.insert(0, rule_name)
+
+    # Tests if the locations entered in the permanent location column are all valid locations at the library.
+    # param:  none
+    # return: True if all locations entered are valid and false otherwise.
+    def test_valid_location(self):
+        location_lookup = Location()
+        result = True
+        line_no = 1
+        for line in self.rule_table:
+            # locations are in field 5 (0 indexed).
+            locations = line[5].split(',')
+            for location in locations:
+                if not location_lookup.has_location(location):
+                    sys.stdout.write('Invalid location on line #{0}: "{1}"\n'.format(line_no, location))
+                    result = False
+            line_no += 1
+        if result:
+            sys.stdout.write('pass.\n')
+        else:
+            sys.stdout.write('fail.\n')
+
+    # Tests if the locations entered in the permanent location column are all valid locations at the library.
+    # param:  none
+    # return: True if all locations entered are valid and false otherwise.
+    def test_valid_itypes(self):
+        type_lookup = Itype()
+        result = True
+        line_no = 1
+        for line in self.rule_table:
+            # locations are in field 5 (0 indexed).
+            itypes = line[7].split(',')
+            for type in itypes:
+                if not type_lookup.has_type(type):
+                    sys.stdout.write('Invalid item type on line #{0}: "{1}"\n'.format(line_no, type))
+                    result = False
+            line_no += 1
+        if result:
+            sys.stdout.write('pass.\n')
+        else:
+            sys.stdout.write('fail.\n')
 
     # Loads a rule from the config file, adjusting to 2 different types of formatting. The config file can be created
     # by hand separating the columns with pipes, but that got boring so the method can also parse values that are cut
@@ -234,6 +380,10 @@ class RuleEngine:
         sys.stdout.write('rule order: \n')
         if self.is_check_rule_order(explain):
             sys.stdout.write('pass.\n')
+        sys.stdout.write('valid locations: \n')
+        self.test_valid_location()
+        sys.stdout.write('valid item types: \n')
+        self.test_valid_itypes()
 
     # Checks if all the bins are utilized.
     def check_bins(self, explain=False):
