@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.1.01 - Fix greedy matching on rules.
 #          1.1.00 - Add checks for correct item type and location names.
 #          1.0.01 - Fix to report items that fall into exception bin (eg no match).
 #          0.0 - Dev.
@@ -35,7 +36,7 @@ import os
 import re
 from itertools import product # Produces product of vector of rules for analysis
 
-version = '1.1.00'
+version = '1.1.01'
 
 # Allows testing of item locations from the ILS.
 # TODO: update with live information from the ILS.
@@ -257,9 +258,9 @@ class RuleEngine:
         for line in self.rule_table:
             # locations are in field 5 (0 indexed).
             itypes = line[7].split(',')
-            for type in itypes:
-                if not type_lookup.has_type(type):
-                    sys.stdout.write('Invalid item type on line #{0}: "{1}"\n'.format(line_no, type))
+            for my_type in itypes:
+                if not type_lookup.has_type(my_type):
+                    sys.stdout.write('Invalid item type on line #{0}: "{1}"\n'.format(line_no, my_type))
                     result = False
             line_no += 1
         if result:
@@ -392,7 +393,7 @@ class RuleEngine:
             # Snag the bin number and put in an array then sort.
             my_bin_name = self.rule_table[i][0]
             if my_bin_name == 'REJECT' or my_bin_name == 'reject':
-                sys.stdout.write('* WARNING: sort route #{0} is set up to reject materials.\n'.format(i + 1))
+                sys.stdout.write('Sort route #{0} is set up to reject materials.\n'.format(i + 1))
             bins.append(my_bin_name)
         # now produce a histogram of rules for each bin.
         bin_dict = {}
@@ -412,11 +413,11 @@ class RuleEngine:
     # param:  item data read from the item file.
     # pamam:  boolean value True will show where the rule fails, False returns quietly.
     # return: list of the [ 31221012345678, True, R6 ]
-    def is_rule_match(self, rule, item_line, show_fail=True):
+    def is_rule_match(self, rule, item_line, explain=True):
         line_items = item_line.split('|')
         # sys.stdout.write('>>>>item cols:{0}\n>>>>rule cols:{1}.\n'.format(line_items, rule))
         if len(line_items) != len(rule):
-            sys.stdout.write('columns don\'t match item cols:{0}, rule cols:{1}.\n'.format(len(line_items), len(rule)))
+            sys.stdout.write('columns don\'t match item cols:{0}, rule cols:{1}, do the items have enough data?\n'.format(len(line_items), len(rule)))
             sys.exit(1)
         # Since we do a side by side comparison of config columns to item columns
         # we need to ensure that the item_line has the same number of columns.
@@ -431,34 +432,39 @@ class RuleEngine:
             regexes = rule[index].split(',') # regexes can look like BOOK,PBK*
             test_col = line_items[index]
             no_match_count = 0
+            if explain:
+                sys.stdout.write('=== new test sequence ===')
             for reg in regexes:
                 regex = str.strip(reg)
-                regex = str.replace(regex,'*','')
-                if show_fail:
+                if explain:
                     sys.stdout.write('"{0}" <=> "{1}", '.format(reg, test_col))
-                # If the regex is empty, it matches anything.
-                # It can be empty because we remove the '*' because of python 'bug'.
-                if len(regex) == 0: # That was a star so everything automatically matches.
-                    if show_fail:
+                if regex == '*': # That was a star so everything automatically matches.
+                    if explain:
                         sys.stdout.write(' Auto-MATCH.\n')
                     break
-                elif test_col == '*': # and len(regex) > 0 because previous if failed.
-                    if show_fail:
+                elif test_col == '*' and regex != '*': # Item has starred field but rule requires a match.
+                    if explain:
                         sys.stdout.write(' NO-MATCH.\n')
-                    break # It doesn't matter what the rule wants we don't have enough information to test.
-                elif test_col.startswith(regex):
-                    if show_fail:
+                    break
+                elif regex[-1] == '*': # The rule ends with '*' so now do relaxed testing.
+                    if test_col.startswith(regex[:-1]):
+                        if explain:
+                            sys.stdout.write(' MATCHES\n'.format(test_col, regex))
+                        matched_rules.append(regex)
+                        break
+                if test_col == regex:
+                    if explain:
                         sys.stdout.write(' MATCHES\n'.format(test_col, regex))
                     matched_rules.append(regex)
                     break
+
                 no_match_count += 1
                 # if we got here none of the listed rules in this column matched our items data.
                 if no_match_count == len(regexes):
                     return [line_items[0], False, rule[0], matched_rules]
-                if show_fail:
+                if explain:
                     sys.stdout.write(" skip...\n")
             index += 1
-        # line_items.insert(0, item_id)
         return [line_items[0], len(matched_rules) > 0, rule[0], matched_rules]
 
     # Tests an item against the matrix, reports which bin it gets sent to and why.
