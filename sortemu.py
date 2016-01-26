@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.2.00 - Screen scrape configuration web page of sorter.
 #          1.1.02 - Formatting, output changes.
 #          1.1.01 - Fix greedy matching on rules.
 #          1.1.00 - Add checks for correct item type and location names.
@@ -36,8 +37,103 @@ import getopt
 import os
 import re
 from itertools import product # Produces product of vector of rules for analysis
+import urllib2
 
-version = '1.1.01'
+version = '1.2.00'
+
+# Manages the retrieval of the sorter's configuration. The class screen-scrapes the configuration
+# from a given sorter's web interface, logging in as required.
+# param:  password string of the password for the sorter you want to grab the config for.
+# param:  machine name like 'assams1.epl.ca'
+class ConfigFetcher:
+    def __init__(self, password, machine_name):
+        assert isinstance(password, str)
+        self.password = password
+        assert isinstance(machine_name, str)
+        self.machine = machine_name
+        self.rules = []
+
+    # Parses the raw HTML for sort matrix rules. Writes the configuration to a file called sorter.cfg
+    # in the working directory.
+    # param:  explain boolean True to see the rules and False to be quiet.
+    # return: True if the content parsed and False otherwise.
+    def parse_sort_matrix_HTML(self, page, explain):
+        lines = page.split('\r\n')
+        config = open('sorter.cfg', 'w')
+        for line in lines:
+            # Just grab the lines that start with space and table data, then clean it up and write it to file.
+            if re.match('\s+</td><td>[R|r]', line):
+                line = line.replace('</td><td>', '\t')
+                line = line.strip()
+                line = line.replace('</td>', '\n')
+                # Sometimes there are pesky extra spaces in between rules.
+                line = line.replace(' ', '')
+                if explain:
+                    sys.stdout.write('SS:"{0}"\n'.format(line))
+                self.rules.append(line)
+                config.write(line)
+        config.close()
+        return (len(self.rules) > 0)
+
+    # Manages logging into the sorter's web page. Not meant to be called outside of the class.
+    # param:  explain boolean, True if you want to see the returned page's HTML and False to remain silent.
+    # return: the array of all the lines of html form the settings page.
+    def __login__(self, explain):
+        url_login = 'http://' + self.machine + '/IntelligentReturn/pages/Index.aspx?password=' + self.password
+        if explain:
+            sys.stdout.write('SS.login: "{0}"\n'.format(url_login))
+            sys.stdout.write('POST: /IntelligentReturn/pages/Index.aspx HTTP/1.1\n')
+            sys.stdout.write('Content-Type: x-www-form-urlencoded\n')
+            sys.stdout.write('Origin: http://{0}\n'.format(self.machine))
+            sys.stdout.write('Referer: {0}\n'.format(url_login))
+        req = urllib2.Request(url_login)
+        req.add_header('POST', '/IntelligentReturn/pages/Index.aspx HTTP/1.1')
+        req.add_header('Content-Type', 'x-www-form-urlencoded')
+        req.add_header('Origin', 'http://' + self.machine)
+        req.add_header('Referer', url_login)
+        # This is nasty
+        # TODO: tidy this up. We are just lucky 3M is lazy about authentication.
+        req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
+        try:
+            page = urllib2.urlopen(req).read()
+            if explain:
+                print str(page)
+        except urllib2.URLError:
+            sys.stderr.write('** error URLError while reading url:\n{0}.\n'.format(url_login))
+            return False
+        if len(page) == 0:
+            return False
+        return True
+
+    # Manages opening the sorter matrix configuration settings web page. Not meant to be called outside of the class.
+    # param:  explain boolean, True if you want to see the returned page's HTML and False to remain silent.
+    # return: the array of all the lines of html form the settings page.
+    def __scrape_settings__(self, explain):
+        url_string = 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx'
+        req = urllib2.Request(url_string)
+        req.add_header('GET', '/IntelligentReturn/pages/SortMatrixItems.aspx HTTP/1.1')
+        req.add_header('Referer', 'http://' + self.machine + '/IntelligentReturn/pages/Workflow.aspx')
+        req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
+        page = urllib2.urlopen(req).read()
+        if not self.parse_sort_matrix_HTML(page, explain):
+            sys.stderr.write('** error failed to parse HTML from :\n{0}.\n'.format(url_string))
+            return False
+        return True
+
+    # Fetches the rules from the sorter's web sorter configuration interface.
+    # param:  explain boolean, True if you want to see the page that was retrieved and False otherwise.
+    # return: returns the array of rules read from the web interface.
+    def fetch_rules(self, explain=False):
+        if self.__login__(explain):
+            if self.__scrape_settings__(explain):
+                return self.rules
+            else:
+                sys.stderr.write('** error scraping sorter settings for {0}.\n'.format(self.machine))
+                sys.exit(-2)
+        else:
+            sys.stderr.write('** error logging into sorter {0}.\n'.format(self.machine))
+            sys.exit(-3)
+
 
 # Allows testing of item locations from the ILS.
 # TODO: update with live information from the ILS.
@@ -185,6 +281,10 @@ class Rule:
 # TODO: add a switch to specify a URL so the app can scrape the config itself.
 class RuleEngine:
     def __init__(self):
+        """
+
+        :rtype: object
+        """
         self.MIN_COLS = 9
         self.rule_table = []
         self.rule_column_names = [ 'SortRoute', 'Alert', 'AlertType', 'MagneticMedia', 'MediaType',
@@ -528,9 +628,11 @@ def usage():
 def main(argv):
     config_file = ''
     items_file = ''
+    machine = ''
+    password = ''
     explain = False
     try:
-        opts, args = getopt.getopt(argv, "c:ei:", ["config=", "items="])
+        opts, args = getopt.getopt(argv, "c:ei:m:p:", ["config=", "items=", "machine="])
     except getopt.GetoptError:
         usage()
         sys.exit()
@@ -541,31 +643,57 @@ def main(argv):
         elif opt in ("-i", "--items"):
             assert isinstance(arg, str)
             items_file = arg
+        elif opt in ("-m", "--machine"):
+            assert isinstance(arg, str)
+            this_arg = arg.replace("'", '')
+            this_arg = this_arg.replace('"', '')
+            machine = this_arg
+        elif opt in ("-p", "--password"):
+            assert isinstance(arg, str)
+            this_arg = arg.replace("'", '')
+            this_arg = this_arg.replace('"', '')
+            password = this_arg
         elif opt in "-e":
             explain = True
 
-    sys.stdout.write('configuration file is "{0}"\n'.format(config_file))
-    sys.stdout.write('running file "{0}"\n'.format(items_file))
-    if not os.path.isfile(config_file):
-        sys.stderr.write("** error: configuration file {0} does not exist.\n".format(config_file))
-        sys.exit()
-    if items_file and not os.path.isfile(items_file):
-        sys.stderr.write("** error: item(s) file {0} does not exist.\n".format(items_file))
-        sys.exit()
     rule_engine = RuleEngine()
-    c_file = open(config_file, 'r')
-    for line in c_file:
-        rule_engine.load_rule(line)
-    c_file.close()
+    if config_file:
+        sys.stdout.write('configuration file is "{0}"\n'.format(config_file))
+        if not os.path.isfile(config_file):
+            sys.stderr.write("** error: configuration file {0} does not exist.\n".format(config_file))
+            sys.exit(-1)
+        c_file = open(config_file, 'r')
+        for line in c_file:
+            rule_engine.load_rule(line)
+        c_file.close()
+    else: # Screen scrape it.
+        if len(machine) > 0:
+            if len(password) > 0:
+                # This object may call sys.exit() if it has problem reading the web form.
+                config_fetcher = ConfigFetcher(password, machine)
+                for line in config_fetcher.fetch_rules(explain):
+                    rule_engine.load_rule(line)
+            else:
+                sys.stderr.write("** error: password not specified.\n")
+                sys.exit(-1)
+        else:
+            sys.stderr.write("** error: machine to screen scrape not specified.\n")
+            sys.exit(-1)
     # Now you can check rules if you like
     # rule_engine.check_rules(explain)
     rule_engine.test_rules(explain)
+
+    # Test the items file if user wants to check files.
     if items_file:
+        sys.stdout.write('running file "{0}"\n'.format(items_file))
+        if items_file and not os.path.isfile(items_file):
+            sys.stderr.write("** error: item(s) file {0} does not exist.\n".format(items_file))
+            sys.exit()
         i_file = open(items_file, 'r')
         for item in i_file:
             rule_engine.test_item(item, explain)
         i_file.close()
-
+    # Done.
     sys.exit(0)
 
 if __name__ == "__main__":
