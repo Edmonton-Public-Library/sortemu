@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.1.02 - Formatting, output changes.
 #          1.1.01 - Fix greedy matching on rules.
 #          1.1.00 - Add checks for correct item type and location names.
 #          1.0.01 - Fix to report items that fall into exception bin (eg no match).
@@ -433,7 +434,7 @@ class RuleEngine:
             test_col = line_items[index]
             no_match_count = 0
             if explain:
-                sys.stdout.write('=== new test sequence ===')
+                sys.stdout.write('\n=== new test sequence ===\n')
             for reg in regexes:
                 regex = str.strip(reg)
                 if explain:
