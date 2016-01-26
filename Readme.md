@@ -97,7 +97,7 @@ R4|*|*|*|*|*|PBK*|*|*|
 R5|*|*|*|*|*|BOOK|900|*
 ```
 
-TODO: A third method is to use screen scraping via URL.
+Use the -p and -m switches to scrape the sort matrix from a given sorter on the network.
 
 
 Instructions for creating input item data:
@@ -106,8 +106,8 @@ Instructions for creating input item data:
 The emulator will test items to determine which route rules (bin) will fire. You can create an input file for the -i
 switch with
 ```
-echo 31221115689585 | selitem -iB -oNBlyt | selcallnum -iN -oSA
-31221114889871  |YRCA|EPLMNA|JPBK|CHILDREN'S FICTION - SERIES S PBK|
+echo 31221106625838 | selitem -iB -oNBlyt | selcallnum -iN -oSA
+31221106625838  |DAISY|EPLCLV|JDAISYTB|DAISY J 364.1523  DON HEN|
 ```
 The emulator takes these fields and pads missing columns so they are the same number of columns as the rule, then performs
 a comparison, reporting which rule fires and why.
@@ -115,18 +115,50 @@ a comparison, reporting which rule fires and why.
 Once the rules and input data are aligned the emulator will test each item and make a report of the success of each item.
 Here is an example. For the input of:
 ```
-31221062470567  |ABORIGINAL|EPLMNA|JBOOK|E SMI
-31221114889871  |YRCA|EPLMNA|JPBK|CHILDREN'S FICTION - SERIES S PBK
+31221106625838  |DAISY|EPLCLV|JDAISYTB|DAISY J 364.1523  DON HEN|
 ```
 The output generated is as follows.
 ```
-item: 31221062470567  ->bin 7, config line 2, SR:R7
-item: 31221114889871  ->bin 4, config line 10, SR:R4
+python sortemu.py -imna.lst -cmna.cfg
+configuration file is "mna.cfg"
+running file "mna.lst"
+testing bins.
+found 11 bins with routing rules.
+bin #R1 has 1 rules.
+bin #R10 has 2 rules.
+bin #R11 has 2 rules.
+bin #R2 has 1 rules.
+bin #R3 has 3 rules.
+bin #R4 has 2 rules.
+bin #R5 has 3 rules.
+bin #R6 has 1 rules.
+bin #R7 has 3 rules.
+bin #R8 has 3 rules.
+bin #R9 has 3 rules.
+done.
+testing for redundant rules.
+done.
+rule order:
+** Warning line #5:(R7) has 3 comparisons and should move above lines with 2.
+valid locations:
+pass.
+valid item types:
+Invalid item type on line #19: "JTALKBK"
+Invalid item type on line #19: "JLARGEPRINT"
+fail.
+line --: 31221106625838  ->bin E (R-) no rule matches.
+```
+If the match was successful on then the output looks like this:
+```
+python sortemu.py -iclv.lst -cclv.cfg
+...
+31221115754736  ->bin 4 (R4, line 8) matches on ['JPBK*', 'JPBK']
+31221108590774  ->bin 4 (R5, line 4) matches on ['JUVMOVIE', 'JDVD21']
 ```
 
 Instructions for Running:
 -------------------------
-python sortemu.py [-i'items.lst'] -c'matrix.cfg' [-e]
+python sortemu.py [-i'items.lst'] [-c'matrix.cfg'| -p'password' -m'sorter.epl.ca'] [-e]
 
 Product Description:
 --------------------
