@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.2.02 - Fixed usage message.
 #          1.2.01 - Added more header HTTP output with -e.
 #          1.2.00 - Screen scrape configuration web page of sorter.
 #          1.1.02 - Formatting, output changes.
@@ -40,7 +41,7 @@ import re
 from itertools import product # Produces product of vector of rules for analysis
 import urllib2
 
-version = '1.2.01'
+version = '1.2.02'
 
 # Manages the retrieval of the sorter's configuration. The class screen-scrapes the configuration
 # from a given sorter's web interface, logging in as required.
@@ -622,10 +623,17 @@ class RuleEngine:
 
 
 def usage():
-    sys.stdout.write('usage: python sortemu.py [-i<items>] -c[config.file] -e.\n')
-    sys.stdout.write('  Written by Andrew Nisbet for Edmonton Public Library (c) (2016).\n')
+    sys.stdout.write('usage: python sortemu.py [-i<items>] [-c[config.file] | -m<machine.epl.ca> -p<password>] -e.\n')
+    sys.stdout.write('  Written by Andrew Nisbet for Edmonton Public Library.\n')
     sys.stdout.write('  See the source header for licensing restrictions.\n')
-    sys.stdout.write('  Version: {0}\n'.format(version))
+    sys.stdout.write('  -i file of items in the following pipe-delimited format: \n'
+                     '     ItemId|HomeLocation|ItemLibrary|ItemType|CallNumber|\n')
+    sys.stdout.write('     gotten with: echo 31221106625838 | selitem -iB -oNBlyt | selcallnum -iN -oSA.\n')
+    sys.stdout.write('  -c Config file. You can copy and paste from the web interface, or use -m -p.\n')
+    sys.stdout.write('  -m In lieu of a config file you can get the sort matrix remotely by specifying the base URL\n'
+                     '     of the target sorter machine. Use in conjunction with -p.\n')
+    sys.stdout.write('  -p Password for the target sorter. Use in conjunction with -m.\n')
+    sys.stdout.write('  Version: {0} Copyright (c) 2016.\n'.format(version))
 
 
 # Take valid command line arguments -b'n', -o, -i, -d, and -h -s.
