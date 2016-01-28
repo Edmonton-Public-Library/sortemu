@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.2.03 - Bug fix in -e during screen scraping.
 #          1.2.02 - Fixed usage message.
 #          1.2.01 - Added more header HTTP output with -e.
 #          1.2.00 - Screen scrape configuration web page of sorter.
@@ -114,7 +115,7 @@ class ConfigFetcher:
         url_string = 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx'
         if explain:
             sys.stdout.write('GET: /IntelligentReturn/pages/SortMatrixItems.aspx HTTP/1.1')
-            sys.stdout.write('Referer', 'http://{0}/IntelligentReturn/pages/Workflow.aspx'.format(self.machine))
+            sys.stdout.write('Referer: http://{0}/IntelligentReturn/pages/Workflow.aspx'.format(self.machine))
         req = urllib2.Request(url_string)
         req.add_header('GET', '/IntelligentReturn/pages/SortMatrixItems.aspx HTTP/1.1')
         req.add_header('Referer', 'http://' + self.machine + '/IntelligentReturn/pages/Workflow.aspx')
