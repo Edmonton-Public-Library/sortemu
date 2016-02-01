@@ -42,7 +42,7 @@ import re
 from itertools import product # Produces product of vector of rules for analysis
 import urllib2
 
-version = '1.2.02'
+version = '1.2.03'
 
 # Manages the retrieval of the sorter's configuration. The class screen-scrapes the configuration
 # from a given sorter's web interface, logging in as required.
