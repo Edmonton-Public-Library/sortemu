@@ -33,6 +33,7 @@
 #          1.1.00 - Add checks for correct item type and location names.
 #          1.0.01 - Fix to report items that fall into exception bin (eg no match).
 #          0.0 - Dev.
+# TODO: Change sorter.cfg to include branch name, sanitize quoted strings for -i param.
 #
 ####################################################
 import sys
@@ -398,7 +399,7 @@ class RuleEngine:
             # sys.stdout.write("****{0}\n".format(new_list))
         else:
             sys.stderr.write('** "{0}" not enough rules, ignoring.'.format(rule_line))
-            sys.stderr.write('** expected {0}, but got {1}.'.format(self.MIN_COLS, len(this_line)))
+            sys.stderr.write('** expected {0}, but got {1}.'.format(self.MIN_COLS, len(rule_line)))
 
     # Sometimes you want to set up a config file based on what the settings are on the target machine.
     # If you go into the sorter configuration you can copy and paste the contents of the config HTML page
