@@ -97,6 +97,25 @@ R4|*|*|*|*|*|PBK*|*|*|
 R5|*|*|*|*|*|BOOK|900|*
 ```
 
+Notes on 3M SelfCheck System S-Series Manager
+---------------------------------------------
+This is a separate sort matrix system that we have. It has fewer columns and looks like this:
+```
+1	*	*	*	*	LOST-ASSUM, LOST-CLAIM, BINDERY	*	*	*	*
+Delete	Edit	Move Up	Move Down	1	Y	01	*	*	*	*	*	*	*
+Delete	Edit	Move Up	Move Down	1	Y	02	*	*	*	*	*	*	*
+Delete	Edit	Move Up	Move Down	1	Y	03	*	*	*	*	*	*	*
+Delete	Edit	Move Up	Move Down	8	*	*	*	*	TEENCOLL, TPBK, TPBKSER	*	JPERIODICL, JPBK	*	*
+Delete	Edit	Move Up	Move Down	2	*	*	*	*	*	EPLLON	JPERIODICL, PERIODICAL	*	*
+```
+
+The comparison of columns; first the new columns, below it the columns from our standard sort matrix.
+```
+Bin#	Alert	AlertType	Magnetic Media	Media Type	Permanent Location Destination Location	Collection Code	Call Number	Sort Bin
+Sort Route	Alert	AlertType	Magnetic Media	Media Type	Permanent Location	Destination Location	Collection Code	Call Number	Sort Bin	Branch ID	Library ID
+```
+They match except for the last 2 columns which were added, and the names have been altered somewhat.
+
 Use the -p and -m switches to scrape the sort matrix from a given sorter on the network.
 
 

@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.3.00 - Add parsing of S-Series matrix.
 #          1.2.03 - Bug fix in -e during screen scraping.
 #          1.2.02 - Fixed usage message.
 #          1.2.01 - Added more header HTTP output with -e.
@@ -418,6 +419,12 @@ class RuleEngine:
     # Submit	 	Submit	Submit	R5	*	*	*	*	*	*	BOOK, MUSICSCORE, PAPERBACK	*	*	*	*	*	*	*
     def parse_screen_scrape_config(self, line_of_rules):
         new_line = str.replace(line_of_rules, 'Submit', '')
+        # S-Series web pages include the following columns which we remove as we did for 'Submit' above.
+        new_line = str.replace(new_line, 'Delete', '')
+        new_line = str.replace(new_line, 'Edit', '')
+        new_line = str.replace(new_line, 'Move', '')
+        new_line = str.replace(new_line, 'Up', '')
+        new_line = str.replace(new_line, 'Down', '')
         new_line = str.strip(new_line)
         new_line = str.replace(new_line, ', ', ',')
         # Sometimes people put extra space between the rule and comma.
@@ -425,7 +432,7 @@ class RuleEngine:
         new_line = re.sub(r'\s+', '|', new_line)
         new_line_list = new_line.split('|')
         # now remove the space after commas
-        # sys.stdout.write('Here is my cols:"{0}"\n'.format(new_line_list))
+        sys.stdout.write('Here is my cols:"{0}"\n'.format(new_line_list))
         return new_line_list
 
     # Displays all the rules in order.
