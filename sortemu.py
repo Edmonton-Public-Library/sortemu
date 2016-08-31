@@ -532,6 +532,7 @@ class RuleEngine:
         line_items = item_line.split('|')
         # sys.stdout.write('>>>>item cols:{0}\n>>>>rule cols:{1}.\n'.format(line_items, rule))
         if len(line_items) != len(rule):
+            # This can occur if the call number includes sub fields on volumes, Symphony uses '|' for this purpose.
             sys.stdout.write('columns don\'t match item cols:{0}, rule cols:{1}, do the items have enough data?\n'.format(len(line_items), len(rule)))
             sys.exit(1)
         # Since we do a side by side comparison of config columns to item columns

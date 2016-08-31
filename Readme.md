@@ -3,7 +3,7 @@ Project Notes
 Initialized: Wed Nov 18 09:55:09 MST 2015.
 
 Sorter basic description:
------------------------
+-------------------------
 An item received on an induction slot will be compared to the rules defined in a configuration file. The rules are read
 starting from the top, line-by-line until a rule fires and the item is shunted into the bin associated with the rule.
 The rule functions to define a sort route which just means bin number. If no rule matches the item travels through the
