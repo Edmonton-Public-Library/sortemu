@@ -286,7 +286,8 @@ class Rule:
 # but the script will fail if you don't add positional matching data in your input.
 #
 # Rule engine can read configs specified from text files that have raw screen scraping from the configuration web page.
-# TODO: add a switch to specify a URL so the app can scrape the config itself.
+# TODO: Add testing of rules that will never match anything in the collection. Find each rule line and do a search
+# TODO: API to selitem -tLISTED,TYPES -lLISTED,LOCATIONS | wc -l, and if 0 then rule is useless.
 class RuleEngine:
     def __init__(self):
         """
