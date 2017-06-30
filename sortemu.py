@@ -104,7 +104,7 @@ class ConfigFetcher:
     # Manages logging into the sorter's web page. Not meant to be called outside of the class.
     # param:  explain boolean, True if you want to see the returned page's HTML and False to remain silent.
     # return: the array of all the lines of html form the settings page.
-    def __login__(self, explain):
+    def _login_(self, explain):
         url_login = 'http://' + self.machine + '/IntelligentReturn/pages/Index.aspx?password=' + self.password
         if explain:
             sys.stdout.write('SS.login: "{0}"\n'.format(url_login))
@@ -134,7 +134,7 @@ class ConfigFetcher:
     # Manages opening the sorter matrix configuration settings web page. Not meant to be called outside of the class.
     # param:  explain boolean, True if you want to see the returned page's HTML and False to remain silent.
     # return: the array of all the lines of html form the settings page.
-    def __scrape_settings__(self, explain):
+    def _scrape_settings_(self, explain):
         url_string = 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx'
         if explain:
             sys.stdout.write('GET: /IntelligentReturn/pages/SortMatrixItems.aspx HTTP/1.1')
@@ -325,12 +325,12 @@ class Rule:
 #  6 - Destination Location
 #  7 - Collection Code
 #  8 - Call Number
-#  9 - Sort Bin Branch ID
+#  9 - Sort Bin	Branch ID
 # 10 - Library ID
 # 11 - Check-in Result
 # 12 - Custom Tag Data
 # 13 - Detection Source
-# R5    *   *   *   *   NONFICTION, REFERENCE   *   BOOK, JBOOK, PBK, PAPERBACK 7*,8*,9*    *   *   *   *
+# R5	*	*	*	*	NONFICTION, REFERENCE	*	BOOK, JBOOK, PBK, PAPERBACK	7*,8*,9*	*	*	*	*
 # This script is based on the common rules I have seen on our sorters. That is we don't use position 1,2,3, or 4
 # but commonly use 5, 7, and 8. If you add additional rules in 1,2,3,4 or after 8, you can and they will be checked
 # but the script will fail if you don't add positional matching data in your input.
@@ -527,18 +527,18 @@ class RuleEngine:
     # Sometimes you want to set up a config file based on what the settings are on the target machine.
     # If you go into the sorter configuration you can copy and paste the contents of the config HTML page
     # into a text file. This script will clean it up and add the rules.
-    # REJECT    Y   01  *   *   *   *   *   *   *   *   *   *   *   *
-    # Submit        Submit  Submit  REJECT  Y   02  *   *   *   *   *   *   *   *   *   *   *   *
-    # Submit        Submit  Submit  REJECT  Y   03  *   *   *   *   *   *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R2  *   *   *   *   *   *   CD, DVD*, JCD, VIDGAME, BLU-RAY*    *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R5  *   *   *   *   *   EPLCLV  PERIODICAL  *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R6  *   *   *   *   *   EPLCLV  JPERIODICL  *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R1  *   *   *   *   TEENFIC, TEENGRAPHC, TPBK, TPBKSER, EASYENGL    *   JBOOK, JPBK, BOOK   *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R4  *   *   *   *   ABORIGINAL, JUVPIC, JPBK, JUVNONF, JUVOTHLANG, NONFICTION, YRCA *   JPBK, JPAPERBACK, JBOOK, JOTHLANGBK *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R6  *   *   *   *   EMOVIE, JUV*, COMICBOOK *   JBOOK, JDVD*, JBLU-RAY*, JPBK, COMIC    *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R1  *   *   *   *   *   *   OTHLANGBK   *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R3  *   *   *   *   GENERAL, FIC*, PBK*, LARGE* *   BOOK, LARGEPRINT, PBK, PAPERBACK    *   *   *   *   *   *   *
-    # Submit        Submit  Submit  R5  *   *   *   *   *   *   BOOK, MUSICSCORE, PAPERBACK *   *   *   *   *   *   *
+    # REJECT	Y	01	*	*	*	*	*	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	REJECT	Y	02	*	*	*	*	*	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	REJECT	Y	03	*	*	*	*	*	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R2	*	*	*	*	*	*	CD, DVD*, JCD, VIDGAME, BLU-RAY*	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R5	*	*	*	*	*	EPLCLV	PERIODICAL	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R6	*	*	*	*	*	EPLCLV	JPERIODICL	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R1	*	*	*	*	TEENFIC, TEENGRAPHC, TPBK, TPBKSER, EASYENGL	*	JBOOK, JPBK, BOOK	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R4	*	*	*	*	ABORIGINAL, JUVPIC, JPBK, JUVNONF, JUVOTHLANG, NONFICTION, YRCA	*	JPBK, JPAPERBACK, JBOOK, JOTHLANGBK	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R6	*	*	*	*	EMOVIE, JUV*, COMICBOOK	*	JBOOK, JDVD*, JBLU-RAY*, JPBK, COMIC	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R1	*	*	*	*	*	*	OTHLANGBK	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R3	*	*	*	*	GENERAL, FIC*, PBK*, LARGE*	*	BOOK, LARGEPRINT, PBK, PAPERBACK	*	*	*	*	*	*	*
+    # Submit	 	Submit	Submit	R5	*	*	*	*	*	*	BOOK, MUSICSCORE, PAPERBACK	*	*	*	*	*	*	*
     def parse_screen_scrape_config(self, line_of_rules):
         new_line = str.replace(line_of_rules, 'Submit', '')
         # S-Series web pages include the following columns which we remove as we did for 'Submit' above.
