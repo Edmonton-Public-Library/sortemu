@@ -24,6 +24,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Fri Dec 18 10:23:18 MST 2015
 # Rev:
+#          1.4.00 - Fetch XML versions of config files.
 #          1.3.00 - Add parsing of S-Series matrix.
 #          1.2.03 - Bug fix in -e during screen scraping.
 #          1.2.02 - Fixed usage message.
@@ -43,6 +44,7 @@ import os
 import re
 from itertools import product # Produces product of vector of rules for analysis
 import urllib2
+import xml.etree.ElementTree # For XML parsing of config files.
 
 version = '1.2.03'
 
@@ -79,6 +81,25 @@ class ConfigFetcher:
                 config.write(line)
         config.close()
         return (len(self.rules) > 0)
+
+    # Parse XML into this format:
+    #  R7 * * * * JUVPIC, JUVCONCEPT, JUVGRAPHIC, JUVICANRD * JBOOK, CD * * * * * * *
+    def _parse_sort_matrix_XML_(self, page, explain):
+        lines = page.split('\n')
+        config = open('sorter.xml', 'w')
+        config.writelines(lines)
+        config.close()
+        e = xml.etree.ElementTree.parse('sorter.xml').getroot()
+        for atype in e.findall('SortRouteCriteria'):
+            line = ''
+            for child in atype:
+                # print(child.tag, child.text)
+                line = line + '  ' + child.text
+            line = line.replace(', ', ',')
+            if explain:
+                sys.stdout.write('LINE:"{0}"\n'.format(line))
+            self.rules.append(line)
+        return True
 
     # Manages logging into the sorter's web page. Not meant to be called outside of the class.
     # param:  explain boolean, True if you want to see the returned page's HTML and False to remain silent.
@@ -128,16 +149,45 @@ class ConfigFetcher:
             return False
         return True
 
+    # http: // asjpls1.epl.ca / IntelligentReturn / pages / SortExportCriteria.aspx
+    def _get_XML_settings(self, explain):
+        url_string = 'http://' + self.machine + '/IntelligentReturn/pages/SortExportCriteria.aspx'
+        if explain:
+            sys.stdout.write('GET: /IntelligentReturn/pages/SortExportCriteria.aspx HTTP/1.1')
+            sys.stdout.write('Referer: http://{0}/IntelligentReturn/pages/Workflow.aspx'.format(self.machine))
+        req = urllib2.Request(url_string)
+        req.add_header('GET', '/IntelligentReturn/pages/SortExportCriteria.aspx HTTP/1.1')
+        req.add_header('Referer', 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx')
+        req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
+        page = urllib2.urlopen(req).read()
+        if not page:
+            sys.stderr.write('** error failed to retrieve XML from :\n{0}.\n'.format(url_string))
+            return False
+        if not self._parse_sort_matrix_XML_(page, explain):
+            sys.stderr.write('** error failed to parse XML :\n{0}.\n{1}'.format(url_string, page))
+            return False
+        return True
+
     # Fetches the rules from the sorter's web sorter configuration interface.
     # param:  explain boolean, True if you want to see the page that was retrieved and False otherwise.
     # return: returns the array of rules read from the web interface.
-    def fetch_rules(self, explain=False):
-        if self.__login__(explain):
-            if self.__scrape_settings__(explain):
-                return self.rules
+    # Fetches the rules from the sorter's web sorter configuration interface.
+    # param:  explain boolean, True if you want to see the page that was retrieved and False otherwise.
+    # return: returns the array of rules read from the web interface.
+    def fetch_rules(self, explain=False, get_XML=False):
+        if self._login_(explain):
+            if get_XML:
+                if self._get_XML_settings(explain):
+                    return self.rules
+                else:
+                    sys.stderr.write('** error getting XML sorter config for {0}.\n'.format(self.machine))
+                    sys.exit(-2)
             else:
-                sys.stderr.write('** error scraping sorter settings for {0}.\n'.format(self.machine))
-                sys.exit(-2)
+                if self._scrape_settings_(explain):
+                    return self.rules
+                else:
+                    sys.stderr.write('** error scraping sorter settings for {0}.\n'.format(self.machine))
+                    sys.exit(-2)
         else:
             sys.stderr.write('** error logging into sorter {0}.\n'.format(self.machine))
             sys.exit(-3)
@@ -275,12 +325,12 @@ class Rule:
 #  6 - Destination Location
 #  7 - Collection Code
 #  8 - Call Number
-#  9 - Sort Bin	Branch ID
+#  9 - Sort Bin Branch ID
 # 10 - Library ID
 # 11 - Check-in Result
 # 12 - Custom Tag Data
 # 13 - Detection Source
-# R5	*	*	*	*	NONFICTION, REFERENCE	*	BOOK, JBOOK, PBK, PAPERBACK	7*,8*,9*	*	*	*	*
+# R5    *   *   *   *   NONFICTION, REFERENCE   *   BOOK, JBOOK, PBK, PAPERBACK 7*,8*,9*    *   *   *   *
 # This script is based on the common rules I have seen on our sorters. That is we don't use position 1,2,3, or 4
 # but commonly use 5, 7, and 8. If you add additional rules in 1,2,3,4 or after 8, you can and they will be checked
 # but the script will fail if you don't add positional matching data in your input.
@@ -300,15 +350,85 @@ class RuleEngine:
                               'PermanentLocation', 'DestinationLocation', 'CollectionCode',
                               'CallNumber', 'SortBin', 'BranchID', 'LibraryID', 'CheckinResult',
                               'CustomTagData', 'DetectionSource' ]
+        self.location_itype_db = "loc.itype.db"
+        self.valid_location_itypes = {}
+
+    # Tests if a dictionary has a key that matches the supplied string. The matching accounts for
+    # globular naming. For example, if a dictionary has a key of 'TEENCOLL', supplying 'TEEN*' will
+    # return true
+    # param:  dictionary of key value pairs, where keys are expected to be strings.
+    # param:  glob_key which will be used to do a soft match on existing keys.
+    def has_matching_key(self, dictionary, glob_key):
+        test_key = glob_key.split('*')[0]
+        for key in dictionary.keys():
+            if key.startswith(test_key):
+                print "I match {0}, on {1}".format(test_key, key)
+                return dictionary[key]
+        return {}
+
+    # Opens the db file and reads all the combinations of locations and item types.
+    # param:
+    def get_master_rule_map(self, db_file_name, explain=True):
+        return_hash = {}
+        if not os.path.isfile(db_file_name):
+            sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.location_itype_db))
+        else:
+            db_file = open(self.location_itype_db, 'r')
+            sys.stdout.write("loading {0}.\n".format(self.location_itype_db))
+            for line in db_file:
+                # If possible read the location-itype db. It's a flat pipe-delimited
+                # text file that lists the uniq location
+                # and itype in the form 'location|item_type' or 'ABORIGINAL|JOTHLANGBK'.
+                (location, itype) = line[:-1].split('|')
+                sys.stdout.write("adding {0} {1}.\n".format(location, itype)) # chomp last '\n' character.
+                loc_dict = self.valid_location_itypes.get(location, {})
+                loc_dict[itype] = itype
+                # {'JBOOK': 'JBOOK', 'JDVD21': 'JDVD21', 'JDVD7': 'JDVD7', 'JPBK': 'JPBK'}
+                self.valid_location_itypes[location] = loc_dict
+            db_file.close()
+            if explain:
+                sys.stdout.write("reviewing entries.\n")
+                for item_list in self.valid_location_itypes:
+                    sys.stdout.write("List: {0}\n".format(str(self.valid_location_itypes[item_list])))
+        return return_hash
 
     # Tests for duplicate rule entries.
-    def test_duplicates(self, explain=False):
+    def test_duplicates(self, explain=True):
         # Create a hash map into which we put keys made of the strings
         # of all combinations of rules on a given line,  and-ed together.
         # Once done, if the key appears twice it is has an identical twin.
         count = 0
-        master_rule_map = {}
-        # for item_entry in self.rule_table:
+        master_rule_map = self.get_master_rule_map(self.location_itype_db)
+        if len(master_rule_map) > 0:
+            # Rules are in lists like:
+            # "['R2', '*', '*', '*', '*', 'TEENCOLL,TEENGRAPHC,TEENFIC', '*', 'JBOOK,JPBK', '*', '*', '*', '*', '*', '*', '*']"
+            # parse them and
+            for line in self.rule_table:
+                rule_name = line[0]
+                rule_locations = line[5].split(',') # get home locations
+                rule_itypes    = line[7].split(',') # And item types.
+                # Take care of ILL and HOLD rules which don't list item types or locations.
+                # "['R1', '*', '*', '*', '*', '*', '*', '*', '*', '*', '*', '*', '*', '*', '*']"
+                if rule_locations[0] == '*' or rule_itypes[0] == '*':
+                    continue
+                # The first test is to see if the rule has any locations that don't exist any more.
+                for rule_location in rule_locations:
+                    # in rules locations can be specified with globbing character '*' so TEENGRAPHIC and appear as 'TEEN*'
+                    my_real_dict = self.has_matching_key(self.valid_location_itypes, rule_location)
+                    if len(my_real_dict) > 0:
+                        # We got a match on a location from the rule in the valid location dictionary.
+                        # Now look up the itypes associated with this type of location.
+                        # The valid loc/itype db looks like {'TEENCOLL': {'BOOK': 'BOOK', 'JBOOK': 'JBOOK'}}
+                        # The rule_itypes is a list like ['JBOOK', 'PBK*']
+                        ## TODO: Continue here check each of the rule_itypes against the loc/itype db.
+                        ## TODO: All must match or there is an unused rule.
+                        sys.stdout.write(">>> location match {0} in rule {1}\n".format(rule_location, rule_name))
+                    else:
+                        sys.stdout.write(
+                            "obsolete use of home location {0} in rule {1}\n".format(rule_location, rule_name))
+
+        # Rules are in lists like:
+        # "['R2', '*', '*', '*', '*', 'TEENCOLL,TEENGRAPHC,TEENFIC', '*', 'JBOOK,JPBK', '*', '*', '*', '*', '*', '*', '*']"
         for line in self.rule_table:
             my_item_list = []
             rule_name = line.pop(0)
@@ -327,6 +447,7 @@ class RuleEngine:
                 count += 1
                 # Chop off the trailing '.' for cleaner display
                 rule_string = rule_string[:-1]
+                # Display rules in following format '336) R5::JUVMAG'
                 if explain:
                     sys.stdout.write("{0}) {1}::".format(count, rule_name))
                     sys.stdout.write("{0}\n".format(rule_string))
@@ -406,18 +527,18 @@ class RuleEngine:
     # Sometimes you want to set up a config file based on what the settings are on the target machine.
     # If you go into the sorter configuration you can copy and paste the contents of the config HTML page
     # into a text file. This script will clean it up and add the rules.
-    # REJECT	Y	01	*	*	*	*	*	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	REJECT	Y	02	*	*	*	*	*	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	REJECT	Y	03	*	*	*	*	*	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R2	*	*	*	*	*	*	CD, DVD*, JCD, VIDGAME, BLU-RAY*	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R5	*	*	*	*	*	EPLCLV	PERIODICAL	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R6	*	*	*	*	*	EPLCLV	JPERIODICL	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R1	*	*	*	*	TEENFIC, TEENGRAPHC, TPBK, TPBKSER, EASYENGL	*	JBOOK, JPBK, BOOK	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R4	*	*	*	*	ABORIGINAL, JUVPIC, JPBK, JUVNONF, JUVOTHLANG, NONFICTION, YRCA	*	JPBK, JPAPERBACK, JBOOK, JOTHLANGBK	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R6	*	*	*	*	EMOVIE, JUV*, COMICBOOK	*	JBOOK, JDVD*, JBLU-RAY*, JPBK, COMIC	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R1	*	*	*	*	*	*	OTHLANGBK	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R3	*	*	*	*	GENERAL, FIC*, PBK*, LARGE*	*	BOOK, LARGEPRINT, PBK, PAPERBACK	*	*	*	*	*	*	*
-    # Submit	 	Submit	Submit	R5	*	*	*	*	*	*	BOOK, MUSICSCORE, PAPERBACK	*	*	*	*	*	*	*
+    # REJECT    Y   01  *   *   *   *   *   *   *   *   *   *   *   *
+    # Submit        Submit  Submit  REJECT  Y   02  *   *   *   *   *   *   *   *   *   *   *   *
+    # Submit        Submit  Submit  REJECT  Y   03  *   *   *   *   *   *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R2  *   *   *   *   *   *   CD, DVD*, JCD, VIDGAME, BLU-RAY*    *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R5  *   *   *   *   *   EPLCLV  PERIODICAL  *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R6  *   *   *   *   *   EPLCLV  JPERIODICL  *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R1  *   *   *   *   TEENFIC, TEENGRAPHC, TPBK, TPBKSER, EASYENGL    *   JBOOK, JPBK, BOOK   *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R4  *   *   *   *   ABORIGINAL, JUVPIC, JPBK, JUVNONF, JUVOTHLANG, NONFICTION, YRCA *   JPBK, JPAPERBACK, JBOOK, JOTHLANGBK *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R6  *   *   *   *   EMOVIE, JUV*, COMICBOOK *   JBOOK, JDVD*, JBLU-RAY*, JPBK, COMIC    *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R1  *   *   *   *   *   *   OTHLANGBK   *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R3  *   *   *   *   GENERAL, FIC*, PBK*, LARGE* *   BOOK, LARGEPRINT, PBK, PAPERBACK    *   *   *   *   *   *   *
+    # Submit        Submit  Submit  R5  *   *   *   *   *   *   BOOK, MUSICSCORE, PAPERBACK *   *   *   *   *   *   *
     def parse_screen_scrape_config(self, line_of_rules):
         new_line = str.replace(line_of_rules, 'Submit', '')
         # S-Series web pages include the following columns which we remove as we did for 'Submit' above.
@@ -694,7 +815,7 @@ def main(argv):
             if len(password) > 0:
                 # This object may call sys.exit() if it has problem reading the web form.
                 config_fetcher = ConfigFetcher(password, machine)
-                for line in config_fetcher.fetch_rules(explain):
+                for line in config_fetcher.fetch_rules(explain, True):
                     rule_engine.load_rule(line)
             else:
                 sys.stderr.write("** error: password not specified.\n")
