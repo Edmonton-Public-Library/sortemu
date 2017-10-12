@@ -197,6 +197,7 @@ Known Issues:
 The emulator does not currently take the current hold state of test items into account during processing, that is,
 what would happen to these items if holds were not taken into account?
 TODO: Allow for items with holds.
+TODO: Add loc.itype.db rebuild and or documentation on how to recreate fresh version.
 TODO: A duplicate rule check needs to be strengthened to look at possible combinations of home locations
 or (Permanent Location), and item types (Collection Code). Currently 2 lines can be flagged if they each have
 a rule like 'FLICKTUNE' as a home location and 'CD' as a iType, but it doesn't mean you can remove one or the other.
