@@ -373,6 +373,8 @@ class RuleEngine:
         return_hash = {}
         if not os.path.isfile(db_file_name):
             sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.location_itype_db))
+            sys.stderr.write("* A new one can be generated from the ILS with the following.\n")
+            sys.stderr.write("selitem -olt | sort | uniq | pipe.pl -oc0,c1 >loc.itype.db\n")
         else:
             db_file = open(self.location_itype_db, 'r')
             sys.stdout.write("loading {0}.\n".format(self.location_itype_db))
