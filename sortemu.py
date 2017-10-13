@@ -194,54 +194,96 @@ class ConfigFetcher:
 
 
 # Allows testing of item locations from the ILS.
-# TODO: update with live information from the ILS.
 class Location:
-    def __init__(self):
-        self.locations = {
-            "STACKS" :1, "CHECKEDOUT" :2, "HOLDS": 3, "ON-ORDER":4, "UNKNOWN":5, "REFERENCE" :6, "MISSING":7, "LOST": 8,
-            "BINDERY" :9, "INPROCESS" :10, "DISCARD":11, "INTRANSIT" :12, "ILL": 13, "RESERVES":14, "CATALOGING" :15,
-            "LOST-PAID" :16, "REPAIR": 17, "RESHELVING" :18, "ADULTCOLL" :19, "4ALLAGES":20, "ALTALEG":21,
-            "ALTALIT" :22, "ANNUALREPT" :23, "ATLAS": 24, "ATLASREF":25, "AVCOLL": 26, "AVREF": 27, "AVSEASONAL" :28,
-            "BUSINESREF" :29, "LONGOVRDUE" :30, "BUSINESS":31, "BUSREF01":32, "BUSREF10":33, "BUSREF11":34,
-            "BUSREF12" :35, "BUSREF13":36, "GOVMAG": 37, "BUSREF15":38, "BUSREF16":39, "BUSREF17":40, "BUSREF18":41,
-            "BUSREF19" :42, "BUSREF02":43, "BUSREF20":44, "GOVFWORKS" :45, "BUSREF22":46, "BUSREF23":47, "BUSREF24":48,
-            "BUSREF25" :49, "BUSREF26":50, "BUSREF27":51, "BUSREF28":52, "BUSREF29":53, "BUSREF03":54, "GOVFLAW":55,
-            "GOVFDIREC" :56, "GOVFECONO" :57, "GOVFDEMOG" :58, "GOVFSTATS" :59, "BUSREF35":60, "BUSREF36":61,
-            "BUSREF37" :62, "BUSREF38":63, "BUSREF39":64, "BUSREF04":65, "BUSREF40":66, "BUSREF41":67, "BUSREF42":68,
-            "BUSREF05" :69, "BUSREF06":70, "BUSREF07":71, "BUSREF08":72, "BUSREF09":73, "CANC_ORDER" :74,
-            "CAREER" :75, "CAREERREF" :76, "CENSUS": 77, "CHILDINFO" :78, "CITYDIR":79, "CITYDIRREF" :80, "COMMNITY":81,
-            "COMMNTYREF" :82, "COMMONS":83, "CONSUMER":84, "CONSUMREF" :85, "DESKINFO":86, "DESKMAGS":87, "DESKREAD":88,
-            "DESKTELINF" :89, "DISPLAY":90, "DIVISION1" :91, "EDMCOUN":92, "ENCYCLOP":93, "EPLACQ": 94, "EPLBINDERY" :95,
-            "EPLCATALOG" :96, "EPLILL": 97, "ESL": 98, "COMICBOOK" :99, "FAIRYTALE" :100, "FICCLASSIC" :101,
-            "FICFANTASY" :102, "FICHISTOR" :103, "FICMYSTERY" :104, "FICROMANCE" :105, "FICSCIENCE" :106,
-            "FICWESTERN" :107, "FRENCH": 108, "GENERAL":109, "GOVPUB": 110, "HALLOWEEN" :111, "EASTER": 112,
-            "CHRISTMAS" :113, "VALENTINE" :114, "THANKSGIVI" :115, "FLICKTUNE" :116, "HERITGNOVR" :117,
-            "HERITOVRSZ" :118, "HEALTHREF" :119, "JUVOTHLANG" :120, "STATSCAN":121, "JUVFRENCH" :122, "JUVGRAPHIC" :123,
-            "TEENGRAPHC" :124, "LARGEPRMYS" :125, "LARGEPRROM" :126, "LARGEPRWES" :127, "STUDYGUIDE" :128,
-            "HERITAGE" :129, "HERITATLAS" :130, "HERITCITYD" :131, "HERITGNLGY" :132, "HERITINDEX" :133, "HOMEWORK":134,
-            "INCOMPLETE" :135, "INDEX": 136, "INTERNET":137, "JANESCOLL" :138, "JUVCOLL":139, "JUVCONCEPT" :140,
-            "JUVICANRD" :141, "JUVPOETRY" :142, "JUVREF": 143, "JUVSEASONL" :144, "LADCOLL":145, "LADDESK":146,
-            "LARGEPRINT" :147, "LAW": 148, "LITERACY":149, "MAGAZINES" :150, "MUSICMAG":151, "NONFICTION" :152,
-            "OFFICE" :153, "OTHERLANG" :154, "OVERSIZE":155, "PAMPHLET":156, "PARENTS":157, "SEASONAL":158,
-            "SENATE" :159, "SHORTSTORY" :160, "SPOKENBUSI" :161, "SPOKENHLTH" :162, "SPOKENINTP" :163, "SPOKENLANG" :164,
-            "SPOKENMUSI" :165, "STANDARDS" :166, "STORAGE":167, "STORAGEHER" :168, "STORAGEREF" :169, "STORYTIME" :170,
-            "TEENCOLL" :171, "TREATIES":172, "YRCA": 173, "BUSREF44":174, "BUSREF47":175, "DAMAGE": 176, "FICGRAPHIC" :177,
-            "BARCGRAVE" :178, "NON-ORDER" :179, "SENIORS":180, "LOST-ASSUM" :181, "LOST-CLAIM" :182, "JUVCLASSIC" :183,
-            "ABORIGINAL" :184, "PROGRAM":185, "BESTSELLER" :186, "REF-ORDER" :187, "JBESTSELLR" :188, "STORAGEGOV" :189,
-            "TEENWORLDL" :190, "AVAIL_SOON" :191, "INSHIPPING" :192, "FICGENERAL" :193, "JPBK": 194, "PBK": 195,
-            "TPBK" :196, "PBKNF": 197, "JUVVIDGAME" :198, "TEENVIDGME" :199, "MUSIC": 200, "REFMAG": 201,
-            "AUDIOBOOK" :202, "CHRISMUSIC" :203, "STOLEN": 204, "JUVPIC": 205, "JUVFIC": 206, "JUVNONF":207,
-            "CUSTSERVIC" :208, "INVSTLTR":209, "VIDGAMES":210, "NOF": 211, "MAKER": 212, "EPL2GO": 213, "FICOVER":214,
-            "PBKCLA" :215, "PBKFAN": 216, "PBKHIR": 217, "PBKHOR": 218, "PBKINS": 219, "PBKMYS": 220, "PBKROM": 221,
-            "PBKSCIFI" :222, "PBKTHR": 223, "PBKWES": 224, "TEENFIC":225, "TPBKSER":226, "NEWS": 227, "JUVBOARD":228,
-            "JUVLPR" :229, "EASYENGL":230, "JUVOVRNF":231, "JUVOVRFIC" :232, "NFOVER": 233, "BRAILLE":234, "DAISY": 235,
-            "LARGEPRFAN" :236, "LARGEPRNF" :237, "TEENFOVR":238, "JUVMAG": 239, "JUVCDBK":240, "JPBKSER":241,
-            "JPBKBCH" :242, "JPBKBCHSER" :243, "JUVFAMLNG" :244, "JUVMOVIE":245, "EMOVIE": 246, "JUVFILMNF" :247,
-            "JUVFILMWL" :248, "JUVMUSIC":249, "JUVSPOKEN" :250, "MOVIES": 251, "FILMWL": 252, "JMOVIESOVR" :253,
-            "LARGEPRSCI" :254, "LARGEPRHI" :255, "MOVIESOVR" :256, "MUSICOVR":257, "JMUSICOVR" :258, "AUDBKOVR":259,
-            "JSPOKENOVR" :260, "EPL2GO2":261, "WLAUDIOBKS" :262, "EPL2GO3": 263, "EPL2GO4": 264,
-            "PRGNOHLD": 265, "DESKHOLD": 266, "LADBINS": 267, "INDIGENOUS": 268, "HERITREF": 269
-        }
+    def __init__(self, explain=False):
+        # Update with live information from the ILS with 'getpol -tLOCN | pipe.pl -oc2,c1 >location.db'
+        # which will produce a pipe-delimited list: 'BUSREF13|36'
+        self.db_file = 'location.db'
+        self.locations = {}
+        if not os.path.isfile(self.db_file):
+            sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.db_file))
+            sys.stderr.write("* A new one can be generated from the ILS with the following.\n")
+            sys.stderr.write("getpol -tLOCN | pipe.pl -oc2,c1 {0}\n".format(self.db_file))
+            self.locations = {
+                "STACKS": 1, "CHECKEDOUT": 2, "HOLDS": 3, "ON-ORDER": 4, "UNKNOWN": 5, "REFERENCE": 6, "MISSING": 7,
+                "LOST": 8,
+                "BINDERY": 9, "INPROCESS": 10, "DISCARD": 11, "INTRANSIT": 12, "ILL": 13, "RESERVES": 14,
+                "CATALOGING": 15,
+                "LOST-PAID": 16, "REPAIR": 17, "RESHELVING": 18, "ADULTCOLL": 19, "4ALLAGES": 20, "ALTALEG": 21,
+                "ALTALIT": 22, "ANNUALREPT": 23, "ATLAS": 24, "ATLASREF": 25, "AVCOLL": 26, "AVREF": 27,
+                "AVSEASONAL": 28,
+                "BUSINESREF": 29, "LONGOVRDUE": 30, "BUSINESS": 31, "BUSREF01": 32, "BUSREF10": 33, "BUSREF11": 34,
+                "BUSREF12": 35, "BUSREF13": 36, "GOVMAG": 37, "BUSREF15": 38, "BUSREF16": 39, "BUSREF17": 40,
+                "BUSREF18": 41,
+                "BUSREF19": 42, "BUSREF02": 43, "BUSREF20": 44, "GOVFWORKS": 45, "BUSREF22": 46, "BUSREF23": 47,
+                "BUSREF24": 48,
+                "BUSREF25": 49, "BUSREF26": 50, "BUSREF27": 51, "BUSREF28": 52, "BUSREF29": 53, "BUSREF03": 54,
+                "GOVFLAW": 55,
+                "GOVFDIREC": 56, "GOVFECONO": 57, "GOVFDEMOG": 58, "GOVFSTATS": 59, "BUSREF35": 60, "BUSREF36": 61,
+                "BUSREF37": 62, "BUSREF38": 63, "BUSREF39": 64, "BUSREF04": 65, "BUSREF40": 66, "BUSREF41": 67,
+                "BUSREF42": 68,
+                "BUSREF05": 69, "BUSREF06": 70, "BUSREF07": 71, "BUSREF08": 72, "BUSREF09": 73, "CANC_ORDER": 74,
+                "CAREER": 75, "CAREERREF": 76, "CENSUS": 77, "CHILDINFO": 78, "CITYDIR": 79, "CITYDIRREF": 80,
+                "COMMNITY": 81,
+                "COMMNTYREF": 82, "COMMONS": 83, "CONSUMER": 84, "CONSUMREF": 85, "DESKINFO": 86, "DESKMAGS": 87,
+                "DESKREAD": 88,
+                "DESKTELINF": 89, "DISPLAY": 90, "DIVISION1": 91, "EDMCOUN": 92, "ENCYCLOP": 93, "EPLACQ": 94,
+                "EPLBINDERY": 95,
+                "EPLCATALOG": 96, "EPLILL": 97, "ESL": 98, "COMICBOOK": 99, "FAIRYTALE": 100, "FICCLASSIC": 101,
+                "FICFANTASY": 102, "FICHISTOR": 103, "FICMYSTERY": 104, "FICROMANCE": 105, "FICSCIENCE": 106,
+                "FICWESTERN": 107, "FRENCH": 108, "GENERAL": 109, "GOVPUB": 110, "HALLOWEEN": 111, "EASTER": 112,
+                "CHRISTMAS": 113, "VALENTINE": 114, "THANKSGIVI": 115, "FLICKTUNE": 116, "HERITGNOVR": 117,
+                "HERITOVRSZ": 118, "HEALTHREF": 119, "JUVOTHLANG": 120, "STATSCAN": 121, "JUVFRENCH": 122,
+                "JUVGRAPHIC": 123,
+                "TEENGRAPHC": 124, "LARGEPRMYS": 125, "LARGEPRROM": 126, "LARGEPRWES": 127, "STUDYGUIDE": 128,
+                "HERITAGE": 129, "HERITATLAS": 130, "HERITCITYD": 131, "HERITGNLGY": 132, "HERITINDEX": 133,
+                "HOMEWORK": 134,
+                "INCOMPLETE": 135, "INDEX": 136, "INTERNET": 137, "JANESCOLL": 138, "JUVCOLL": 139, "JUVCONCEPT": 140,
+                "JUVICANRD": 141, "JUVPOETRY": 142, "JUVREF": 143, "JUVSEASONL": 144, "LADCOLL": 145, "LADDESK": 146,
+                "LARGEPRINT": 147, "LAW": 148, "LITERACY": 149, "MAGAZINES": 150, "MUSICMAG": 151, "NONFICTION": 152,
+                "OFFICE": 153, "OTHERLANG": 154, "OVERSIZE": 155, "PAMPHLET": 156, "PARENTS": 157, "SEASONAL": 158,
+                "SENATE": 159, "SHORTSTORY": 160, "SPOKENBUSI": 161, "SPOKENHLTH": 162, "SPOKENINTP": 163,
+                "SPOKENLANG": 164,
+                "SPOKENMUSI": 165, "STANDARDS": 166, "STORAGE": 167, "STORAGEHER": 168, "STORAGEREF": 169,
+                "STORYTIME": 170,
+                "TEENCOLL": 171, "TREATIES": 172, "YRCA": 173, "BUSREF44": 174, "BUSREF47": 175, "DAMAGE": 176,
+                "FICGRAPHIC": 177,
+                "BARCGRAVE": 178, "NON-ORDER": 179, "SENIORS": 180, "LOST-ASSUM": 181, "LOST-CLAIM": 182,
+                "JUVCLASSIC": 183,
+                "ABORIGINAL": 184, "PROGRAM": 185, "BESTSELLER": 186, "REF-ORDER": 187, "JBESTSELLR": 188,
+                "STORAGEGOV": 189,
+                "TEENWORLDL": 190, "AVAIL_SOON": 191, "INSHIPPING": 192, "FICGENERAL": 193, "JPBK": 194, "PBK": 195,
+                "TPBK": 196, "PBKNF": 197, "JUVVIDGAME": 198, "TEENVIDGME": 199, "MUSIC": 200, "REFMAG": 201,
+                "AUDIOBOOK": 202, "CHRISMUSIC": 203, "STOLEN": 204, "JUVPIC": 205, "JUVFIC": 206, "JUVNONF": 207,
+                "CUSTSERVIC": 208, "INVSTLTR": 209, "VIDGAMES": 210, "NOF": 211, "MAKER": 212, "EPL2GO": 213,
+                "FICOVER": 214,
+                "PBKCLA": 215, "PBKFAN": 216, "PBKHIR": 217, "PBKHOR": 218, "PBKINS": 219, "PBKMYS": 220, "PBKROM": 221,
+                "PBKSCIFI": 222, "PBKTHR": 223, "PBKWES": 224, "TEENFIC": 225, "TPBKSER": 226, "NEWS": 227,
+                "JUVBOARD": 228,
+                "JUVLPR": 229, "EASYENGL": 230, "JUVOVRNF": 231, "JUVOVRFIC": 232, "NFOVER": 233, "BRAILLE": 234,
+                "DAISY": 235,
+                "LARGEPRFAN": 236, "LARGEPRNF": 237, "TEENFOVR": 238, "JUVMAG": 239, "JUVCDBK": 240, "JPBKSER": 241,
+                "JPBKBCH": 242, "JPBKBCHSER": 243, "JUVFAMLNG": 244, "JUVMOVIE": 245, "EMOVIE": 246, "JUVFILMNF": 247,
+                "JUVFILMWL": 248, "JUVMUSIC": 249, "JUVSPOKEN": 250, "MOVIES": 251, "FILMWL": 252, "JMOVIESOVR": 253,
+                "LARGEPRSCI": 254, "LARGEPRHI": 255, "MOVIESOVR": 256, "MUSICOVR": 257, "JMUSICOVR": 258,
+                "AUDBKOVR": 259,
+                "JSPOKENOVR": 260, "EPL2GO2": 261, "WLAUDIOBKS": 262, "EPL2GO3": 263, "EPL2GO4": 264,
+                "PRGNOHLD": 265, "DESKHOLD": 266, "LADBINS": 267, "INDIGENOUS": 268, "HERITREF": 269
+            }
+        else:
+            db_file = open(self.db_file, 'r')
+            sys.stdout.write("loading {0}.\n".format(self.db_file))
+            for line in db_file:
+                # Something like 'PRGNOHLD|265'.
+                (location, loc_num) = line[:-1].split('|')
+                sys.stdout.write("adding {0} {1}.\n".format(location, loc_num)) # chomp last '\n' character.
+                self.locations[location] = loc_num
+            db_file.close()
+            if explain:
+                sys.stdout.write("reviewing entries.\n")
+                for item_list in self.locations:
+                    sys.stdout.write("List: {0}\n".format(str(self.locations[item_list])))
+
 
     # Reports if the argument string is a valid location name in the ILS.
     # param:  none.
@@ -264,21 +306,44 @@ class Location:
 # Allows testing of item types from the ILS.
 # TODO: update with live information from the ILS.
 class Itype:
-    def __init__(self):
-        self.types = {
-            "UNKNOWN" :1, "ILL-BOOK":2, "AV": 3, "AV-EQUIP":4, "BOOK": 5, "MAGAZINE":6, "MICROFORM" :7, "NEWSPAPER" :8,
-            "NEW-BOOK" :9, "REF-BOOK":10, "BRAILLE":11, "CASSETTE":12, "CD": 13, "DVD21": 14, "DVD7": 15, "EQUIPMENT" :16,
-            "E-RESOURCE" :17, "JBOOK": 18, "JBRAILLE":19, "JCASSETTE" :20, "JCD": 21, "JDVD21": 22, "JDVD7": 23,
-            "JLARGEPRNT" :24, "JMUSICSCOR" :25, "JPAPERBACK" :26, "JPERIODICL" :27, "JREFBOOK":28, "JTALKBKMED" :29,
-            "JTALKINGBK" :30, "JVIDEO21":31, "JVIDEO7":32, "LARGEPRINT" :33, "MUSICSCORE" :34, "PAMPHLET":35,
-            "PAPERBACK" :36, "PERIODICAL" :37, "TALKBKMED" :38, "TALKINGBK" :39, "VIDEO21":40, "VIDEO7": 41,
-            "DAISYRD" :42, "BESTSELLER" :43, "COMIC": 44, "JBESTSELLR" :45, "FLICKTUNE" :46, "JFLICKTUNE" :47,
-            "OTHLANGBK" :48, "JOTHLANGBK" :49, "RFIDSCANNR" :50, "BKCLUBKIT" :51, "JKIT": 52, "FLICKSTOGO" :53,
-            "TUNESTOGO" :54, "JFLICKTOGO" :55, "JTUNESTOGO" :56, "PROGRAMKIT" :57, "DAISYTB":58, "JDAISYTB":59,
-            "JPBK" :60, "PBK": 61, "JVIDGAME":62, "REFPERDCL" :63, "GOVERNMENT" :64, "LAPTOP": 65, "BLU-RAY":66,
-            "BLU-RAY21" :67, "JBLU-RAY":68, "JBLU-RAY21" :69, "EREADER":70, "PROGRAM6WK" :71, "LEASEDBK":72,
-            "JLEASEDBK" :73, "TABLET": 74, "VIDGAME":75, "PEDOMETER" :76, "MAKERKIT":77, "SBKCLUBKIT" :78
-        }
+    def __init__(self, explain=False):
+        # Static list of current item types.
+        # TODO: update with live information from the ILS with 'getpol -tITYP | pipe.pl -oc2,c1 >type.db'
+        # which will produce a pipe-delimited list: 'HOTSPOT|79'
+        self.db_file = 'type.db'
+        self.types = {}
+        if not os.path.isfile(self.db_file):
+            sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.db_file))
+            sys.stderr.write("* A new one can be generated from the ILS with the following.\n")
+            sys.stderr.write("getpol -tITYP | pipe.pl -oc2,c1 >{0}\n".format(self.db_file))
+            self.types = {
+                "UNKNOWN" :1, "ILL-BOOK":2, "AV": 3, "AV-EQUIP":4, "BOOK": 5, "MAGAZINE":6, "MICROFORM" :7, "NEWSPAPER" :8,
+                "NEW-BOOK" :9, "REF-BOOK":10, "BRAILLE":11, "CASSETTE":12, "CD": 13, "DVD21": 14, "DVD7": 15, "EQUIPMENT" :16,
+                "E-RESOURCE" :17, "JBOOK": 18, "JBRAILLE":19, "JCASSETTE" :20, "JCD": 21, "JDVD21": 22, "JDVD7": 23,
+                "JLARGEPRNT" :24, "JMUSICSCOR" :25, "JPAPERBACK" :26, "JPERIODICL" :27, "JREFBOOK":28, "JTALKBKMED" :29,
+                "JTALKINGBK" :30, "JVIDEO21":31, "JVIDEO7":32, "LARGEPRINT" :33, "MUSICSCORE" :34, "PAMPHLET":35,
+                "PAPERBACK" :36, "PERIODICAL" :37, "TALKBKMED" :38, "TALKINGBK" :39, "VIDEO21":40, "VIDEO7": 41,
+                "DAISYRD" :42, "BESTSELLER" :43, "COMIC": 44, "JBESTSELLR" :45, "FLICKTUNE" :46, "JFLICKTUNE" :47,
+                "OTHLANGBK" :48, "JOTHLANGBK" :49, "RFIDSCANNR" :50, "BKCLUBKIT" :51, "JKIT": 52, "FLICKSTOGO" :53,
+                "TUNESTOGO" :54, "JFLICKTOGO" :55, "JTUNESTOGO" :56, "PROGRAMKIT" :57, "DAISYTB":58, "JDAISYTB":59,
+                "JPBK" :60, "PBK": 61, "JVIDGAME":62, "REFPERDCL" :63, "GOVERNMENT" :64, "LAPTOP": 65, "BLU-RAY":66,
+                "BLU-RAY21" :67, "JBLU-RAY":68, "JBLU-RAY21" :69, "EREADER":70, "PROGRAM6WK" :71, "LEASEDBK":72,
+                "JLEASEDBK" :73, "TABLET": 74, "VIDGAME":75, "PEDOMETER" :76, "MAKERKIT":77, "SBKCLUBKIT" :78,
+                "HOTSPOT": 79, "HERITAGE": 80
+            }
+        else:
+            db_file = open(self.db_file, 'r')
+            sys.stdout.write("loading {0}.\n".format(self.db_file))
+            for line in db_file:
+                # Something like 'PRGNOHLD|265'.
+                (itype, itype_num) = line[:-1].split('|')
+                sys.stdout.write("adding {0} {1}.\n".format(itype, itype_num)) # chomp last '\n' character.
+                self.types[itype] = itype_num
+            db_file.close()
+            if explain:
+                sys.stdout.write("reviewing entries.\n")
+                for item_list in self.types:
+                    sys.stdout.write("List: {0}\n".format(str(self.types[item_list])))
 
     # Reports if the argument string is a valid item type in the ILS.
     # param:  none.
@@ -288,7 +353,7 @@ class Itype:
             # May be a star
             if itype == '*':
                 return True
-            # could be a location wild card like BLUE-RAY*
+            # could be a itype wild card like BLUE-RAY*
             if itype[-1] == '*':
                 for location in self.types.keys():
                     if location.startswith(itype[:-1]):
@@ -337,8 +402,7 @@ class Rule:
 # but the script will fail if you don't add positional matching data in your input.
 #
 # Rule engine can read configs specified from text files that have raw screen scraping from the configuration web page.
-# TODO: Add testing of rules that will never match anything in the collection. Find each rule line and do a search
-# TODO: API to selitem -tLISTED,TYPES -lLISTED,LOCATIONS | wc -l, and if 0 then rule is useless.
+# TODO: Add testing of rules that will never match anything in the collection.
 class RuleEngine:
     def __init__(self):
         """
@@ -768,7 +832,7 @@ def usage():
     sys.stdout.write('  -m In lieu of a config file you can get the sort matrix remotely by specifying the base URL\n'
                      '     of the target sorter machine. Use in conjunction with -p.\n')
     sys.stdout.write('  -p Password for the target sorter. Use in conjunction with -m.\n')
-    sys.stdout.write('  Version: {0} Copyright (c) 2016.\n'.format(version))
+    sys.stdout.write('  Version: {0} Copyright (c) 2017.\n'.format(version))
 
 
 # Take valid command line arguments -b'n', -o, -i, -d, and -h -s.
