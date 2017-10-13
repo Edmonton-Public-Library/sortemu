@@ -200,6 +200,7 @@ class Location:
         # which will produce a pipe-delimited list: 'BUSREF13|36'
         self.db_file = 'location.db'
         self.locations = {}
+        self.explain = explain
         if not os.path.isfile(self.db_file):
             sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.db_file))
             sys.stderr.write("* A new one can be generated from the ILS with the following.\n")
@@ -276,10 +277,11 @@ class Location:
             for line in db_file:
                 # Something like 'PRGNOHLD|265'.
                 (location, loc_num) = line[:-1].split('|')
-                sys.stdout.write("adding {0} {1}.\n".format(location, loc_num)) # chomp last '\n' character.
+                if self.explain:
+                    sys.stdout.write("adding {0} {1}.\n".format(location, loc_num)) # chomp last '\n' character.
                 self.locations[location] = loc_num
             db_file.close()
-            if explain:
+            if self.explain:
                 sys.stdout.write("reviewing entries.\n")
                 for item_list in self.locations:
                     sys.stdout.write("List: {0}\n".format(str(self.locations[item_list])))
@@ -312,6 +314,7 @@ class Itype:
         # which will produce a pipe-delimited list: 'HOTSPOT|79'
         self.db_file = 'type.db'
         self.types = {}
+        self.explain = explain
         if not os.path.isfile(self.db_file):
             sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.db_file))
             sys.stderr.write("* A new one can be generated from the ILS with the following.\n")
@@ -337,10 +340,11 @@ class Itype:
             for line in db_file:
                 # Something like 'PRGNOHLD|265'.
                 (itype, itype_num) = line[:-1].split('|')
-                sys.stdout.write("adding {0} {1}.\n".format(itype, itype_num)) # chomp last '\n' character.
+                if self.explain:
+                    sys.stdout.write("adding {0} {1}.\n".format(itype, itype_num)) # chomp last '\n' character.
                 self.types[itype] = itype_num
             db_file.close()
-            if explain:
+            if self.explain:
                 sys.stdout.write("reviewing entries.\n")
                 for item_list in self.types:
                     sys.stdout.write("List: {0}\n".format(str(self.types[item_list])))
