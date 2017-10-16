@@ -46,8 +46,11 @@ from itertools import product # Produces product of vector of rules for analysis
 import urllib2
 import xml.etree.ElementTree # For XML parsing of config files.
 
-version = '1.2.03'
-
+version = '1.4.00'
+# Ensure the order of columns is consistent. XML doesn't guarantee order of tags.
+CONFIG_COL_ORDER = ['TargetRouteName', 'Alert', 'AlertType', 'MagneticMedia', 'MediaType', 'PermanentLocation',
+            'DestinationLocation', 'CollectionCode', 'CallNumber', 'SortBin', 'BranchId', 'LibraryId', 'CheckInResult',
+            'CustomTagData', 'DetectionSource']
 # Manages the retrieval of the sorter's configuration. The class screen-scrapes the configuration
 # from a given sorter's web interface, logging in as required.
 # param:  password string of the password for the sorter you want to grab the config for.
@@ -59,28 +62,7 @@ class ConfigFetcher:
         assert isinstance(machine_name, str)
         self.machine = machine_name
         self.rules = []
-
-    # Parses the raw HTML for sort matrix rules. Writes the configuration to a file called sorter.cfg
-    # in the working directory.
-    # param:  explain boolean True to see the rules and False to be quiet.
-    # return: True if the content parsed and False otherwise.
-    def parse_sort_matrix_HTML(self, page, explain):
-        lines = page.split('\r\n')
-        config = open('sorter.cfg', 'w')
-        for line in lines:
-            # Just grab the lines that start with space and table data, then clean it up and write it to file.
-            if re.match('\s+</td><td>[R|r]', line):
-                line = line.replace('</td><td>', '\t')
-                line = line.strip()
-                line = line.replace('</td>', '\n')
-                # Sometimes there are pesky extra spaces in between rules.
-                line = line.replace(' ', '')
-                if explain:
-                    sys.stdout.write('SS:"{0}"\n'.format(line))
-                self.rules.append(line)
-                config.write(line)
-        config.close()
-        return (len(self.rules) > 0)
+        
 
     # Parse XML into this format:
     #  R7 * * * * JUVPIC, JUVCONCEPT, JUVGRAPHIC, JUVICANRD * JBOOK, CD * * * * * * *
@@ -92,9 +74,12 @@ class ConfigFetcher:
         e = xml.etree.ElementTree.parse('sorter.xml').getroot()
         for atype in e.findall('SortRouteCriteria'):
             line = ''
+            element_dict = {} # Store all keys and values and then order them as expected.
             for child in atype:
-                # print(child.tag, child.text)
-                line = line + '  ' + child.text
+                print(child.tag, child.text)
+                element_dict[child.tag] = child.text
+            for col in CONFIG_COL_ORDER:
+                line = line + ' ' + element_dict[col]
             line = line.replace(', ', ',')
             if explain:
                 sys.stdout.write('LINE:"{0}"\n'.format(line))
@@ -131,24 +116,6 @@ class ConfigFetcher:
             return False
         return True
 
-    # Manages opening the sorter matrix configuration settings web page. Not meant to be called outside of the class.
-    # param:  explain boolean, True if you want to see the returned page's HTML and False to remain silent.
-    # return: the array of all the lines of html form the settings page.
-    def _scrape_settings_(self, explain):
-        url_string = 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx'
-        if explain:
-            sys.stdout.write('GET: /IntelligentReturn/pages/SortMatrixItems.aspx HTTP/1.1')
-            sys.stdout.write('Referer: http://{0}/IntelligentReturn/pages/Workflow.aspx'.format(self.machine))
-        req = urllib2.Request(url_string)
-        req.add_header('GET', '/IntelligentReturn/pages/SortMatrixItems.aspx HTTP/1.1')
-        req.add_header('Referer', 'http://' + self.machine + '/IntelligentReturn/pages/Workflow.aspx')
-        req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
-        page = urllib2.urlopen(req).read()
-        if not self.parse_sort_matrix_HTML(page, explain):
-            sys.stderr.write('** error failed to parse HTML from :\n{0}.\n'.format(url_string))
-            return False
-        return True
-
     # http: // asjpls1.epl.ca / IntelligentReturn / pages / SortExportCriteria.aspx
     def _get_XML_settings(self, explain):
         url_string = 'http://' + self.machine + '/IntelligentReturn/pages/SortExportCriteria.aspx'
@@ -176,18 +143,11 @@ class ConfigFetcher:
     # return: returns the array of rules read from the web interface.
     def fetch_rules(self, explain=False, get_XML=False):
         if self._login_(explain):
-            if get_XML:
-                if self._get_XML_settings(explain):
-                    return self.rules
-                else:
-                    sys.stderr.write('** error getting XML sorter config for {0}.\n'.format(self.machine))
-                    sys.exit(-2)
+            if self._get_XML_settings(explain):
+                return self.rules
             else:
-                if self._scrape_settings_(explain):
-                    return self.rules
-                else:
-                    sys.stderr.write('** error scraping sorter settings for {0}.\n'.format(self.machine))
-                    sys.exit(-2)
+                sys.stderr.write('** error getting XML sorter config for {0}.\n'.format(self.machine))
+                sys.exit(-2)
         else:
             sys.stderr.write('** error logging into sorter {0}.\n'.format(self.machine))
             sys.exit(-3)
@@ -206,68 +166,47 @@ class Location:
             sys.stderr.write("* A new one can be generated from the ILS with the following.\n")
             sys.stderr.write("getpol -tLOCN | pipe.pl -oc2,c1 {0}\n".format(self.db_file))
             self.locations = {
-                "STACKS": 1, "CHECKEDOUT": 2, "HOLDS": 3, "ON-ORDER": 4, "UNKNOWN": 5, "REFERENCE": 6, "MISSING": 7,
-                "LOST": 8,
-                "BINDERY": 9, "INPROCESS": 10, "DISCARD": 11, "INTRANSIT": 12, "ILL": 13, "RESERVES": 14,
-                "CATALOGING": 15,
+                "STACKS": 1, "CHECKEDOUT": 2, "HOLDS": 3, "ON-ORDER": 4, "UNKNOWN": 5, "REFERENCE": 6, "MISSING": 7, "LOST": 8,
+                "BINDERY": 9, "INPROCESS": 10, "DISCARD": 11, "INTRANSIT": 12, "ILL": 13, "RESERVES": 14, "CATALOGING": 15,
                 "LOST-PAID": 16, "REPAIR": 17, "RESHELVING": 18, "ADULTCOLL": 19, "4ALLAGES": 20, "ALTALEG": 21,
-                "ALTALIT": 22, "ANNUALREPT": 23, "ATLAS": 24, "ATLASREF": 25, "AVCOLL": 26, "AVREF": 27,
-                "AVSEASONAL": 28,
+                "ALTALIT": 22, "ANNUALREPT": 23, "ATLAS": 24, "ATLASREF": 25, "AVCOLL": 26, "AVREF": 27, "AVSEASONAL": 28,
                 "BUSINESREF": 29, "LONGOVRDUE": 30, "BUSINESS": 31, "BUSREF01": 32, "BUSREF10": 33, "BUSREF11": 34,
-                "BUSREF12": 35, "BUSREF13": 36, "GOVMAG": 37, "BUSREF15": 38, "BUSREF16": 39, "BUSREF17": 40,
-                "BUSREF18": 41,
-                "BUSREF19": 42, "BUSREF02": 43, "BUSREF20": 44, "GOVFWORKS": 45, "BUSREF22": 46, "BUSREF23": 47,
-                "BUSREF24": 48,
-                "BUSREF25": 49, "BUSREF26": 50, "BUSREF27": 51, "BUSREF28": 52, "BUSREF29": 53, "BUSREF03": 54,
-                "GOVFLAW": 55,
+                "BUSREF12": 35, "BUSREF13": 36, "GOVMAG": 37, "BUSREF15": 38, "BUSREF16": 39, "BUSREF17": 40, "BUSREF18": 41,
+                "BUSREF19": 42, "BUSREF02": 43, "BUSREF20": 44, "GOVFWORKS": 45, "BUSREF22": 46, "BUSREF23": 47, "BUSREF24": 48,
+                "BUSREF25": 49, "BUSREF26": 50, "BUSREF27": 51, "BUSREF28": 52, "BUSREF29": 53, "BUSREF03": 54, "GOVFLAW": 55,
                 "GOVFDIREC": 56, "GOVFECONO": 57, "GOVFDEMOG": 58, "GOVFSTATS": 59, "BUSREF35": 60, "BUSREF36": 61,
-                "BUSREF37": 62, "BUSREF38": 63, "BUSREF39": 64, "BUSREF04": 65, "BUSREF40": 66, "BUSREF41": 67,
-                "BUSREF42": 68,
+                "BUSREF37": 62, "BUSREF38": 63, "BUSREF39": 64, "BUSREF04": 65, "BUSREF40": 66, "BUSREF41": 67, "BUSREF42": 68,
                 "BUSREF05": 69, "BUSREF06": 70, "BUSREF07": 71, "BUSREF08": 72, "BUSREF09": 73, "CANC_ORDER": 74,
-                "CAREER": 75, "CAREERREF": 76, "CENSUS": 77, "CHILDINFO": 78, "CITYDIR": 79, "CITYDIRREF": 80,
-                "COMMNITY": 81,
-                "COMMNTYREF": 82, "COMMONS": 83, "CONSUMER": 84, "CONSUMREF": 85, "DESKINFO": 86, "DESKMAGS": 87,
-                "DESKREAD": 88,
-                "DESKTELINF": 89, "DISPLAY": 90, "DIVISION1": 91, "EDMCOUN": 92, "ENCYCLOP": 93, "EPLACQ": 94,
-                "EPLBINDERY": 95,
+                "CAREER": 75, "CAREERREF": 76, "CENSUS": 77, "CHILDINFO": 78, "CITYDIR": 79, "CITYDIRREF": 80, "COMMNITY": 81,
+                "COMMNTYREF": 82, "COMMONS": 83, "CONSUMER": 84, "CONSUMREF": 85, "DESKINFO": 86, "DESKMAGS": 87, "DESKREAD": 88,
+                "DESKTELINF": 89, "DISPLAY": 90, "DIVISION1": 91, "EDMCOUN": 92, "ENCYCLOP": 93, "EPLACQ": 94, "EPLBINDERY": 95,
                 "EPLCATALOG": 96, "EPLILL": 97, "ESL": 98, "COMICBOOK": 99, "FAIRYTALE": 100, "FICCLASSIC": 101,
                 "FICFANTASY": 102, "FICHISTOR": 103, "FICMYSTERY": 104, "FICROMANCE": 105, "FICSCIENCE": 106,
                 "FICWESTERN": 107, "FRENCH": 108, "GENERAL": 109, "GOVPUB": 110, "HALLOWEEN": 111, "EASTER": 112,
                 "CHRISTMAS": 113, "VALENTINE": 114, "THANKSGIVI": 115, "FLICKTUNE": 116, "HERITGNOVR": 117,
-                "HERITOVRSZ": 118, "HEALTHREF": 119, "JUVOTHLANG": 120, "STATSCAN": 121, "JUVFRENCH": 122,
-                "JUVGRAPHIC": 123,
+                "HERITOVRSZ": 118, "HEALTHREF": 119, "JUVOTHLANG": 120, "STATSCAN": 121, "JUVFRENCH": 122, "JUVGRAPHIC": 123,
                 "TEENGRAPHC": 124, "LARGEPRMYS": 125, "LARGEPRROM": 126, "LARGEPRWES": 127, "STUDYGUIDE": 128,
-                "HERITAGE": 129, "HERITATLAS": 130, "HERITCITYD": 131, "HERITGNLGY": 132, "HERITINDEX": 133,
-                "HOMEWORK": 134,
+                "HERITAGE": 129, "HERITATLAS": 130, "HERITCITYD": 131, "HERITGNLGY": 132, "HERITINDEX": 133, "HOMEWORK": 134,
                 "INCOMPLETE": 135, "INDEX": 136, "INTERNET": 137, "JANESCOLL": 138, "JUVCOLL": 139, "JUVCONCEPT": 140,
                 "JUVICANRD": 141, "JUVPOETRY": 142, "JUVREF": 143, "JUVSEASONL": 144, "LADCOLL": 145, "LADDESK": 146,
                 "LARGEPRINT": 147, "LAW": 148, "LITERACY": 149, "MAGAZINES": 150, "MUSICMAG": 151, "NONFICTION": 152,
                 "OFFICE": 153, "OTHERLANG": 154, "OVERSIZE": 155, "PAMPHLET": 156, "PARENTS": 157, "SEASONAL": 158,
-                "SENATE": 159, "SHORTSTORY": 160, "SPOKENBUSI": 161, "SPOKENHLTH": 162, "SPOKENINTP": 163,
-                "SPOKENLANG": 164,
-                "SPOKENMUSI": 165, "STANDARDS": 166, "STORAGE": 167, "STORAGEHER": 168, "STORAGEREF": 169,
-                "STORYTIME": 170,
-                "TEENCOLL": 171, "TREATIES": 172, "YRCA": 173, "BUSREF44": 174, "BUSREF47": 175, "DAMAGE": 176,
-                "FICGRAPHIC": 177,
-                "BARCGRAVE": 178, "NON-ORDER": 179, "SENIORS": 180, "LOST-ASSUM": 181, "LOST-CLAIM": 182,
-                "JUVCLASSIC": 183,
-                "ABORIGINAL": 184, "PROGRAM": 185, "BESTSELLER": 186, "REF-ORDER": 187, "JBESTSELLR": 188,
-                "STORAGEGOV": 189,
+                "SENATE": 159, "SHORTSTORY": 160, "SPOKENBUSI": 161, "SPOKENHLTH": 162, "SPOKENINTP": 163, "SPOKENLANG": 164,
+                "SPOKENMUSI": 165, "STANDARDS": 166, "STORAGE": 167, "STORAGEHER": 168, "STORAGEREF": 169, "STORYTIME": 170,
+                "TEENCOLL": 171, "TREATIES": 172, "YRCA": 173, "BUSREF44": 174, "BUSREF47": 175, "DAMAGE": 176, "FICGRAPHIC": 177,
+                "BARCGRAVE": 178, "NON-ORDER": 179, "SENIORS": 180, "LOST-ASSUM": 181, "LOST-CLAIM": 182, "JUVCLASSIC": 183,
+                "ABORIGINAL": 184, "PROGRAM": 185, "BESTSELLER": 186, "REF-ORDER": 187, "JBESTSELLR": 188, "STORAGEGOV": 189,
                 "TEENWORLDL": 190, "AVAIL_SOON": 191, "INSHIPPING": 192, "FICGENERAL": 193, "JPBK": 194, "PBK": 195,
                 "TPBK": 196, "PBKNF": 197, "JUVVIDGAME": 198, "TEENVIDGME": 199, "MUSIC": 200, "REFMAG": 201,
                 "AUDIOBOOK": 202, "CHRISMUSIC": 203, "STOLEN": 204, "JUVPIC": 205, "JUVFIC": 206, "JUVNONF": 207,
-                "CUSTSERVIC": 208, "INVSTLTR": 209, "VIDGAMES": 210, "NOF": 211, "MAKER": 212, "EPL2GO": 213,
-                "FICOVER": 214,
+                "CUSTSERVIC": 208, "INVSTLTR": 209, "VIDGAMES": 210, "NOF": 211, "MAKER": 212, "EPL2GO": 213, "FICOVER": 214,
                 "PBKCLA": 215, "PBKFAN": 216, "PBKHIR": 217, "PBKHOR": 218, "PBKINS": 219, "PBKMYS": 220, "PBKROM": 221,
-                "PBKSCIFI": 222, "PBKTHR": 223, "PBKWES": 224, "TEENFIC": 225, "TPBKSER": 226, "NEWS": 227,
-                "JUVBOARD": 228,
-                "JUVLPR": 229, "EASYENGL": 230, "JUVOVRNF": 231, "JUVOVRFIC": 232, "NFOVER": 233, "BRAILLE": 234,
-                "DAISY": 235,
+                "PBKSCIFI": 222, "PBKTHR": 223, "PBKWES": 224, "TEENFIC": 225, "TPBKSER": 226, "NEWS": 227, "JUVBOARD": 228,
+                "JUVLPR": 229, "EASYENGL": 230, "JUVOVRNF": 231, "JUVOVRFIC": 232, "NFOVER": 233, "BRAILLE": 234, "DAISY": 235,
                 "LARGEPRFAN": 236, "LARGEPRNF": 237, "TEENFOVR": 238, "JUVMAG": 239, "JUVCDBK": 240, "JPBKSER": 241,
                 "JPBKBCH": 242, "JPBKBCHSER": 243, "JUVFAMLNG": 244, "JUVMOVIE": 245, "EMOVIE": 246, "JUVFILMNF": 247,
                 "JUVFILMWL": 248, "JUVMUSIC": 249, "JUVSPOKEN": 250, "MOVIES": 251, "FILMWL": 252, "JMOVIESOVR": 253,
-                "LARGEPRSCI": 254, "LARGEPRHI": 255, "MOVIESOVR": 256, "MUSICOVR": 257, "JMUSICOVR": 258,
-                "AUDBKOVR": 259,
+                "LARGEPRSCI": 254, "LARGEPRHI": 255, "MOVIESOVR": 256, "MUSICOVR": 257, "JMUSICOVR": 258, "AUDBKOVR": 259,
                 "JSPOKENOVR": 260, "EPL2GO2": 261, "WLAUDIOBKS": 262, "EPL2GO3": 263, "EPL2GO4": 264,
                 "PRGNOHLD": 265, "DESKHOLD": 266, "LADBINS": 267, "INDIGENOUS": 268, "HERITREF": 269
             }
@@ -415,10 +354,6 @@ class RuleEngine:
         """
         self.MIN_COLS = 9
         self.rule_table = []
-        self.rule_column_names = [ 'SortRoute', 'Alert', 'AlertType', 'MagneticMedia', 'MediaType',
-                              'PermanentLocation', 'DestinationLocation', 'CollectionCode',
-                              'CallNumber', 'SortBin', 'BranchID', 'LibraryID', 'CheckinResult',
-                              'CustomTagData', 'DetectionSource' ]
         self.location_itype_db = "loc.itype.db"
         self.valid_location_itypes = {}
 
@@ -437,7 +372,7 @@ class RuleEngine:
 
     # Opens the db file and reads all the combinations of locations and item types.
     # param:
-    def get_master_rule_map(self, db_file_name, explain=True):
+    def get_master_rule_map(self, db_file_name, explain=False):
         return_hash = {}
         if not os.path.isfile(db_file_name):
             sys.stderr.write("* warn: location itype file {0} does not exist.\n".format(self.location_itype_db))
@@ -451,7 +386,8 @@ class RuleEngine:
                 # text file that lists the uniq location
                 # and itype in the form 'location|item_type' or 'ABORIGINAL|JOTHLANGBK'.
                 (location, itype) = line[:-1].split('|')
-                sys.stdout.write("adding {0} {1}.\n".format(location, itype)) # chomp last '\n' character.
+                if explain:
+                    sys.stdout.write("adding {0} {1}.\n".format(location, itype)) # chomp last '\n' character.
                 loc_dict = self.valid_location_itypes.get(location, {})
                 loc_dict[itype] = itype
                 # {'JBOOK': 'JBOOK', 'JDVD21': 'JDVD21', 'JDVD7': 'JDVD7', 'JPBK': 'JPBK'}
@@ -581,7 +517,7 @@ class RuleEngine:
         this_line_list[-1] = str.strip(this_line_list[-1])
         if this_line_list[-1] == '':
             this_line_list[-1] = '*'
-        for i in range(len(this_line_list), len(self.rule_column_names)): # pad remaining fields with stars
+        for i in range(len(this_line_list), len(CONFIG_COL_ORDER)): # pad remaining fields with stars
             this_line_list.insert(i, '*')
         # sys.stdout.write("padded rule::{0}\n".format(this_line_list))
         if len(this_line_list) >= self.MIN_COLS:
@@ -648,7 +584,7 @@ class RuleEngine:
             line_no += 1
             # Holds for ILL, this or that library should come first.
             if line[1] != '*':
-                rank = len(self.rule_column_names) # set to maximum so they should appear first.
+                rank = len(CONFIG_COL_ORDER) # set to maximum so they should appear first.
             else:
                 for column in line:
                     if len(column) > 1:
@@ -710,11 +646,11 @@ class RuleEngine:
                 bin_dict[bin] += 1
             except KeyError:
                 bin_dict[bin] = 1
-        sys.stdout.write('found {0} bins with routing rules.\n'.format(len(bin_dict.keys())))
+        sys.stdout.write('found {0} bins with routing rule(s).\n'.format(len(bin_dict.keys())))
         bin_key_list = bin_dict.keys()
         bin_key_list.sort()
         for name in bin_key_list:
-            sys.stdout.write('bin #{0} has {1} rules.\n'.format(name, bin_dict[name]))
+            sys.stdout.write('bin #{0} has {1} rule(s).\n'.format(name, bin_dict[name]))
 
     # Tests an items data from the ILS and returns a list of the [ item_id, is_match, rule# ]
     # param:  single rule line from the matrix.
@@ -791,7 +727,7 @@ class RuleEngine:
         # The script just works on the general case of assuming there are no holds for these items, to see where
         # they would theoretically fall into.
         # sys.stdout.write('item_array:{0}\n'.format(item_columns))
-        for i in range(1, len(self.rule_column_names)): # instead of sort route we have an item id.
+        for i in range(1, len(CONFIG_COL_ORDER)): # instead of sort route we have an item id.
             if i < 5: # put stars in the following positions to match rule columns.
                 item_columns.insert(i, '*')
             if i > 8:
