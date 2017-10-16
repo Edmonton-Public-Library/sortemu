@@ -76,7 +76,6 @@ class ConfigFetcher:
             line = ''
             element_dict = {} # Store all keys and values and then order them as expected.
             for child in atype:
-                print(child.tag, child.text)
                 element_dict[child.tag] = child.text
             for col in CONFIG_COL_ORDER:
                 line = line + ' ' + element_dict[col]
