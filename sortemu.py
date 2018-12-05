@@ -479,6 +479,10 @@ class RuleEngine:
                 if not location_lookup.has_location(location):
                     sys.stdout.write('Invalid location on line #{0}: "{1}"\n'.format(line_no, location))
                     result = False
+                # Test if the rules locations end with a space, this makes 'TPBK' != 'TPBK '
+                if location[-1] == '#':
+                    sys.stdout.write("** error location {0} on line {1} contains a trailing space\n".format(location, line_no))
+                    result = False
             line_no += 1
         if result:
             sys.stdout.write('pass.\n')
@@ -499,6 +503,8 @@ class RuleEngine:
                 if not type_lookup.has_type(my_type):
                     sys.stdout.write('Invalid item type on line #{0}: "{1}"\n'.format(line_no, my_type))
                     result = False
+                if my_type[-1] == '#':
+                    sys.stdout.write("** error item type {0} on line {1} contains a trailing space\n".format(my_type, line_no))
             line_no += 1
         if result:
             sys.stdout.write('pass.\n')
@@ -556,7 +562,7 @@ class RuleEngine:
         new_line = str.strip(new_line)
         new_line = str.replace(new_line, ', ', ',')
         # Sometimes people put extra space between the rule and comma.
-        new_line = str.replace(new_line, ' ,', ',')
+        new_line = str.replace(new_line, ' ,', '#,') # ** THIS IS A SERIOUS ERROR THAT NEEDS REPORTING.
         new_line = re.sub(r'\s+', '|', new_line)
         new_line_list = new_line.split('|')
         # now remove the space after commas
