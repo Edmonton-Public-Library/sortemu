@@ -62,7 +62,7 @@ class ConfigFetcher:
         assert isinstance(machine_name, str)
         self.machine = machine_name
         self.rules = []
-        
+
 
     # Parse XML into this format:
     #  R7 * * * * JUVPIC, JUVCONCEPT, JUVGRAPHIC, JUVICANRD * JBOOK, CD * * * * * * *
@@ -207,7 +207,8 @@ class Location:
                 "JUVFILMWL": 248, "JUVMUSIC": 249, "JUVSPOKEN": 250, "MOVIES": 251, "FILMWL": 252, "JMOVIESOVR": 253,
                 "LARGEPRSCI": 254, "LARGEPRHI": 255, "MOVIESOVR": 256, "MUSICOVR": 257, "JMUSICOVR": 258, "AUDBKOVR": 259,
                 "JSPOKENOVR": 260, "EPL2GO2": 261, "WLAUDIOBKS": 262, "EPL2GO3": 263, "EPL2GO4": 264,
-                "PRGNOHLD": 265, "DESKHOLD": 266, "LADBINS": 267, "INDIGENOUS": 268, "HERITREF": 269
+                "PRGNOHLD": 265, "DESKHOLD": 266, "LADBINS": 267, "INDIGENOUS": 268, "HERITREF": 269, "YRCA2": 270,
+                "CAPCTY": 271, "NEWBOOK": 272
             }
         else:
             db_file = open(self.db_file, 'r')
@@ -270,7 +271,7 @@ class Itype:
                 "JPBK" :60, "PBK": 61, "JVIDGAME":62, "REFPERDCL" :63, "GOVERNMENT" :64, "LAPTOP": 65, "BLU-RAY":66,
                 "BLU-RAY21" :67, "JBLU-RAY":68, "JBLU-RAY21" :69, "EREADER":70, "PROGRAM6WK" :71, "LEASEDBK":72,
                 "JLEASEDBK" :73, "TABLET": 74, "VIDGAME":75, "PEDOMETER" :76, "MAKERKIT":77, "SBKCLUBKIT" :78,
-                "HOTSPOT": 79, "HERITAGE": 80
+                "HOTSPOT": 79, "HERITAGE": 80, "AUDBK": 82, "JAUDBK": 83
             }
         else:
             db_file = open(self.db_file, 'r')
@@ -285,7 +286,7 @@ class Itype:
             if self.explain:
                 sys.stdout.write("reviewing entries.\n")
                 for item_list in self.types:
-                    sys.stdout.write("List: {0}\n".format(str(self.types[item_list])))
+                    sys.stdout.write("List: {0}\n".format(str(self.types[item_list]))) 
 
     # Reports if the argument string is a valid item type in the ILS.
     # param:  none.
