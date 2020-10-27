@@ -125,7 +125,7 @@ class ConfigFetcher:
         req.add_header('GET', '/IntelligentReturn/pages/SortExportCriteria.aspx HTTP/1.1')
         req.add_header('Referer', 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx')
         req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
-        page = urllib.request.urlopen(req).read()
+        page = urllib.request.urlopen(req).read().decode()
         if not page:
             sys.stderr.write('** error failed to retrieve XML from :\n{0}.\n'.format(url_string))
             return False
