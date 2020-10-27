@@ -286,7 +286,7 @@ class Itype:
             if self.explain:
                 sys.stdout.write("reviewing entries.\n")
                 for item_list in self.types:
-                    sys.stdout.write("List: {0}\n".format(str(self.types[item_list]))) 
+                    sys.stdout.write("List: {0}\n".format(str(self.types[item_list])))
 
     # Reports if the argument string is a valid item type in the ILS.
     # param:  none.
@@ -666,6 +666,7 @@ class RuleEngine:
     def is_rule_match(self, rule, item_line, explain=True):
         line_items = item_line.split('|')
         # sys.stdout.write('>>>>item cols:{0}\n>>>>rule cols:{1}.\n'.format(line_items, rule))
+        # TODO Find out why this fails with IDY Staff induction.
         if len(line_items) != len(rule):
             # This can occur if the call number includes sub fields on volumes, Symphony uses '|' for this purpose.
             sys.stdout.write('columns don\'t match item cols:{0}, rule cols:{1}, do the items have enough data?\n'.format(len(line_items), len(rule)))
