@@ -43,7 +43,7 @@ import getopt
 import os
 import re
 from itertools import product # Produces product of vector of rules for analysis
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import xml.etree.ElementTree # For XML parsing of config files.
 
 version = '1.4.00'
@@ -96,7 +96,7 @@ class ConfigFetcher:
             sys.stdout.write('Content-Type: x-www-form-urlencoded\n')
             sys.stdout.write('Origin: http://{0}\n'.format(self.machine))
             sys.stdout.write('Referer: {0}\n'.format(url_login))
-        req = urllib2.Request(url_login)
+        req = urllib.request.Request(url_login)
         req.add_header('POST', '/IntelligentReturn/pages/Index.aspx HTTP/1.1')
         req.add_header('Content-Type', 'x-www-form-urlencoded')
         req.add_header('Origin', 'http://' + self.machine)
@@ -105,10 +105,10 @@ class ConfigFetcher:
         # TODO: tidy this up. We are just lucky 3M is lazy about authentication.
         req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
         try:
-            page = urllib2.urlopen(req).read()
+            page = urllib.request.urlopen(req).read()
             if explain:
-                print str(page)
-        except urllib2.URLError:
+                sys.stdout.write(str(page))
+        except urllib.error.URLError:
             sys.stderr.write('** error URLError while reading url:\n{0}.\n'.format(url_login))
             return False
         if len(page) == 0:
@@ -121,11 +121,11 @@ class ConfigFetcher:
         if explain:
             sys.stdout.write('GET: /IntelligentReturn/pages/SortExportCriteria.aspx HTTP/1.1')
             sys.stdout.write('Referer: http://{0}/IntelligentReturn/pages/Workflow.aspx'.format(self.machine))
-        req = urllib2.Request(url_string)
+        req = urllib.request.Request(url_string)
         req.add_header('GET', '/IntelligentReturn/pages/SortExportCriteria.aspx HTTP/1.1')
         req.add_header('Referer', 'http://' + self.machine + '/IntelligentReturn/pages/SortMatrixItems.aspx')
         req.add_header('Cookie', '_ga=GA1.2.1092116257.1449677921; ASP.NET_SessionId=kvethq55okpydy452fi2srnk')
-        page = urllib2.urlopen(req).read()
+        page = urllib.request.urlopen(req).read()
         if not page:
             sys.stderr.write('** error failed to retrieve XML from :\n{0}.\n'.format(url_string))
             return False
@@ -230,13 +230,13 @@ class Location:
     # param:  none.
     # return: True if there is a location in the ILS that matches the argument and False otherwise.
     def has_location(self, location_name):
-        if not self.locations.has_key(location_name):
+        if location_name not in self.locations:
             # May be a star
             if location_name == '*':
                 return True
             # could be a location wild card like FIC*
             if location_name[-1] == '*':
-                for location in self.locations.keys():
+                for location in list(self.locations.keys()):
                     if location.startswith(location_name[:-1]):
                         return True
             else: # not a star, no match on valid name
@@ -292,13 +292,13 @@ class Itype:
     # param:  none.
     # return: True if there is a item type in the ILS that matches the argument and False otherwise.
     def has_type(self, itype):
-        if not self.types.has_key(itype):
+        if itype not in self.types:
             # May be a star
             if itype == '*':
                 return True
             # could be a itype wild card like BLUE-RAY*
             if itype[-1] == '*':
-                for location in self.types.keys():
+                for location in list(self.types.keys()):
                     if location.startswith(itype[:-1]):
                         return True
             else: # not a star, no match on valid name
@@ -318,7 +318,7 @@ class Rule:
         self.rule = []
         assert isinstance(rules, list)
         for rule in rules:
-            print rule
+            sys.stdout.write(rule)
 
 
 # Rule engine reads and stores rules, then tests can be run against arbitrary items.
@@ -364,9 +364,9 @@ class RuleEngine:
     # param:  glob_key which will be used to do a soft match on existing keys.
     def has_matching_key(self, dictionary, glob_key):
         test_key = glob_key.split('*')[0]
-        for key in dictionary.keys():
+        for key in list(dictionary.keys()):
             if key.startswith(test_key):
-                print "I match {0}, on {1}".format(test_key, key)
+                sys.stdout.write("I match {0}, on {1}\n".format(test_key, key))
                 return dictionary[key]
         return {}
 
@@ -459,7 +459,7 @@ class RuleEngine:
                     sys.stdout.write("{0}) {1}::".format(count, rule_name))
                     sys.stdout.write("{0}\n".format(rule_string))
                 # Add each new name as a key into a hashmap with the rule name as the value.
-                if master_rule_map.has_key(rule_string):
+                if rule_string in master_rule_map:
                     sys.stdout.write("** Warning duplicate rule detected in rule {0} and {1}->{2}\n".format(master_rule_map[rule_string], rule_name, rule_string.split('.')))
                 else:
                     master_rule_map[rule_string] = rule_name
@@ -652,8 +652,8 @@ class RuleEngine:
                 bin_dict[bin] += 1
             except KeyError:
                 bin_dict[bin] = 1
-        sys.stdout.write('found {0} bins with routing rule(s).\n'.format(len(bin_dict.keys())))
-        bin_key_list = bin_dict.keys()
+        sys.stdout.write('found {0} bins with routing rule(s).\n'.format(len(list(bin_dict.keys()))))
+        bin_key_list = list(bin_dict.keys())
         bin_key_list.sort()
         for name in bin_key_list:
             sys.stdout.write('bin #{0} has {1} rule(s).\n'.format(name, bin_dict[name]))
