@@ -104,17 +104,13 @@ class ConfigGenerator:
                 self.unhandled_rule_count += item_count
         if self._is_well_formed_(self.bins):
             self._compile_rules_(self.all_num_loc_typ_bin)
+            self._deduplicate_rules_()
         else:
             sys.stdout.write("There are errors in the spread sheet. Please fix them and re-run the application.\n")
             sys.exit(2)
         # Print out all the rules as JSON.
         if self.debug:
             sys.stdout.write(">>> JSON sorter rules:\n{0}\n\n".format(self.all_num_loc_typ_bin))
-
-    # Adds the locations and types to the rule line.
-    def __add_data_to_rule__(self, rule_dict, loc_arr, typ_arr):
-        count_items_affected = 0
-        return count_items_affected
 
     # Helper function to find a named dictionary in the List of rules.
     # param:  name of the dictionary.
@@ -154,18 +150,23 @@ class ConfigGenerator:
                 rule_content = {'location': [ss_item['location']], 'type': [ss_item['type']], 'affected': affected_count}
                 new_rule = {r_name: rule_content}
                 self.matrix.append(new_rule)
-        for view_item in self.matrix:
-            # TODO: Fix this for better reporting.
-            sys.stdout.write("RULE -->: {}\n".format(view_item))
 
-    # Adds default rules like reject items on hold for other branches or ILL customers.
-    def _add_default_rules_(self):
-        pass
+    # Deduplicate the locations and types if necessary.
+    def _deduplicate_rules_(self):
+        for rule in self.matrix:
+            rule: dict
+            for key, value in rule.items():
+                rule[key]['location'] = list(set(rule[key]['location']))
+                rule[key]['type'] = list(set(rule[key]['type']))
 
     # Orders the matrix so testing flows from most specific rule matching to most general.
     # Other facets of the algorithm include ordering specific exception item types before
     # more general rules.
     def _order_rules_(self):
+        pass
+
+    # Adds default rules like reject items on hold for other branches or ILL customers.
+    def add_default_rules(self):
         pass
 
     # Writes the proposed matrix to the spread sheet. A new sheet is created at the end fo the
@@ -242,6 +243,9 @@ class ConfigGenerator:
                              'spread sheet are invalid.\n'.format(self.malformed_rule_item_count))
             for bad_bin, ss_row in self.malformed_rule_name_row.items():
                 sys.stdout.write("  bin assignment '{}' on row {}.\n".format(bad_bin, ss_row))
+        for view_item in self.matrix:
+            # TODO: Fix this for better reporting.
+            sys.stdout.write("RULE -->: {}\n".format(view_item))
 
 
 # Staff should be given a spreadsheet whose first sheet includes the header 'Count, Locations, iTypes, Bin #".
