@@ -26,7 +26,8 @@
 # TODO: 2 Add a default rule before any single column rule for DAMAGE,MISSING,DISCARD,*ORDER,BINDERY,UNKNOWN,NOF.
 # TODO: Add optional default sort routes for holds for other libraries.
 # TODO: Compile rules into optimized format.
-# TODO: Export 3CS file as XML.
+# TODO: Export 3CS file as XML
+#  and allow user to write proposed matrix back to the spread sheet.
 #######################################################################################################################
 import xlrd
 import sys
@@ -110,19 +111,50 @@ class ConfigGenerator:
         if self.debug:
             sys.stdout.write(">>> JSON sorter rules:\n{0}\n\n".format(self.all_num_loc_typ_bin))
 
+    # Adds the locations and types to the rule line.
+    def __add_data_to_rule__(self, rule_dict, loc_arr, typ_arr):
+        count_items_affected = 0
+        return count_items_affected
+
+    def __search__(self, name):
+        rule: dict
+        for rule in self.matrix:
+            if name in rule:
+                return rule
+        return None
+
     # Rules begin compilation by creating one rule for each bin and adding all the locations and item types that
     # need to match for that rule to fire. One rule which should covers the largest number of items in the catalog
     # Can contain just item types and will be ordered below the more complex rules that contain locations and item
     # types.
     # param:  ss_rule_dict -  a array of dictionaries of rules taken from the spread sheet.
     def _compile_rules_(self, ss_rule_array):
-        # [{'Count': 2184.0, 'Location': 'AUDIOBOOK', 'Item Type': 'JAUDBK', 'Bin #': 5.0}, {'Count': 2809.0, ...
+        # [{'count': 2184.0, 'location': 'AUDIOBOOK', 'type': 'JAUDBK', 'bin': 5.0}, {'Count': 2809.0, ...
         # TODO: finish me.
         # Create a matrix like so:
-        # [{'R2': {'location': 'AUDIOBOOK,TEENFIC,DAISY', 'type': 'JAUDBK,COMICBOOK,DAISYTB'}}, ... ]
-        # for item in ss_rule_array:
-        #     if self.matrix
-        pass
+        # [{'R2': {'location': 'AUDIOBOOK,TEENFIC,DAISY', 'type': 'JAUDBK,COMICBOOK,DAISYTB' 'affected': 11223}}, ... ]
+        # The input array looks like this:
+        # [{'count': 2184.0, 'location': 'AUDIOBOOK', 'type': 'JAUDBK', 'bin': 5.0}, {'count': 2809.0, ... }]
+        for ss_item in ss_rule_array:
+            affected_count: int = round(ss_item['count'], None)
+            this_bin_num: int = round(ss_item['bin'], None)
+            r_name = "R{}".format(this_bin_num)
+            existing_rule = self.__search__(r_name)
+            if existing_rule:
+                new_location: str = ss_item['location']
+                # Append this location onto the existing locations
+                rule_content = existing_rule[r_name]
+                rule_content['location'] = rule_content['location'] + ",{}".format(new_location)
+                new_item_type: str = ss_item['type']
+                rule_content['type'] = rule_content['type'] + ",{}".format(new_item_type)
+                rule_content['affected'] = rule_content['affected'] + affected_count
+            else:
+                # Add the data to this rule.
+                rule_content = {'location': ss_item['location'], 'type': ss_item['type'], 'affected': affected_count}
+                new_rule = {r_name: rule_content}
+                self.matrix.append(new_rule)
+        for view_item in self.matrix:
+            sys.stdout.write("RULE -->: {}\n".format(view_item))
 
     # Adds default rules like reject items on hold for other branches or ILL customers.
     def _add_default_rules_(self):
@@ -132,6 +164,16 @@ class ConfigGenerator:
     # Other facets of the algorithm include ordering specific exception item types before
     # more general rules.
     def _order_rules_(self):
+        pass
+
+    # Writes the proposed matrix to the spread sheet. A new sheet is created at the end fo the
+    # document with the proposed rules written in columns.
+    def write_matrix_to_ss(self, named_sheet):
+        pass
+
+    # This method is used to create the XML version of the 3SC file used to upload to each of the induction
+    # units on the sorter.
+    def write_config_file(self, file_name):
         pass
 
     # Staff have the option of either specifying that certain location/iType combinations should go to the exception
@@ -180,7 +222,7 @@ class ConfigGenerator:
     def report(self):
         if self.debug:
             sys.stdout.write("Highest bin: {0}, last bin: {1}, and exception bin is {2}.\n"
-                         .format(self.highest_bin, self.last_bin, self.exception_bin))
+                             .format(self.highest_bin, self.last_bin, self.exception_bin))
         # Report rule coverage.
         sys.stdout.write("Rule coverage:\n")
         total_items = self.handled_rule_count + self.unhandled_rule_count
@@ -203,6 +245,7 @@ class ConfigGenerator:
 # Staff should be given a spreadsheet whose first sheet includes the header 'Count, Locations, iTypes, Bin #".
 
 if __name__ == "__main__":
+    unset_sheet_name: str = "__UNSET__"
     parser = argparse.ArgumentParser(description="Generates optimized sorter config from a Microsoft XSLS file.")
     # Required input for the name of the XSLS file.
     parser.add_argument("-i", "--in_file", action="store", type=str, required=True,
@@ -217,6 +260,13 @@ if __name__ == "__main__":
                         help="Specifies code of the library code where the sorter operates. "
                              "For example EPLIDY for Idylwylde branch. If not used no branch specific "
                              "rules will be added.")
+    parser.add_argument("-o", "--out_file", action="store", type=str, required=False,
+                        help="Specifies the name (and path) of the .3SC file that can be uploaded to each of "
+                             "the induction units on the sorter.")
+    parser.add_argument("-w", "--write_spread_sheet", default=unset_sheet_name, action="store", type=str,
+                        required=False,
+                        help="the zero-based index of the staff-selection sheet within the XSLS file. "
+                             "Default 0, or the first sheet in the spreadsheet.")
     args = parser.parse_args()
     input_file = args.in_file
     branch = ""
@@ -232,5 +282,15 @@ if __name__ == "__main__":
     if debug:
         sys.stdout.write("input_file: {0}\n".format(input_file))
         sys.stdout.write("sheet_index: {0}\n".format(sheet_index))
+
     sorter_configurator = ConfigGenerator(input_file, sheet_index, debug)
+    if args.out_file:
+        xml_config = args.out_file
+        # TODO: Test and report if directory and or file exist and report or exit.
+        sorter_configurator.write_config_file(xml_config)
+    if args.write_spread_sheet != unset_sheet_name:
+        ss_sheet_name = args.write_spread_sheet
+        # TODO: Test and report if the sheet already exists and add a new suffix to it to
+        #  make the sheet name unique.
+        sorter_configurator.write_matrix_to_ss(ss_sheet_name)
     sorter_configurator.report()
