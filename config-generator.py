@@ -116,6 +116,9 @@ class ConfigGenerator:
         count_items_affected = 0
         return count_items_affected
 
+    # Helper function to find a named dictionary in the List of rules.
+    # param:  name of the dictionary.
+    # return: the dictionary, if there is one, and None none were found with that name.
     def __search__(self, name):
         rule: dict
         for rule in self.matrix:
@@ -129,31 +132,30 @@ class ConfigGenerator:
     # types.
     # param:  ss_rule_dict -  a array of dictionaries of rules taken from the spread sheet.
     def _compile_rules_(self, ss_rule_array):
-        # [{'count': 2184.0, 'location': 'AUDIOBOOK', 'type': 'JAUDBK', 'bin': 5.0}, {'Count': 2809.0, ...
-        # TODO: finish me.
-        # Create a matrix like so:
-        # [{'R2': {'location': 'AUDIOBOOK,TEENFIC,DAISY', 'type': 'JAUDBK,COMICBOOK,DAISYTB' 'affected': 11223}}, ... ]
         # The input array looks like this:
         # [{'count': 2184.0, 'location': 'AUDIOBOOK', 'type': 'JAUDBK', 'bin': 5.0}, {'count': 2809.0, ... }]
+        # Create a matrix like so:
+        # [{'R1': {'location': ['DAISY', ',FLICKTUNE'], 'type': ['DAISYTB', ',JFLICKTOGO'], 'affected': 4657}}, ... ]
         for ss_item in ss_rule_array:
             affected_count: int = round(ss_item['count'], None)
             this_bin_num: int = round(ss_item['bin'], None)
             r_name = "R{}".format(this_bin_num)
             existing_rule = self.__search__(r_name)
             if existing_rule:
+                rule_content = existing_rule[r_name]
                 new_location: str = ss_item['location']
                 # Append this location onto the existing locations
-                rule_content = existing_rule[r_name]
-                rule_content['location'] = rule_content['location'] + ",{}".format(new_location)
+                rule_content['location'].append("{}".format(new_location))
                 new_item_type: str = ss_item['type']
-                rule_content['type'] = rule_content['type'] + ",{}".format(new_item_type)
+                rule_content['type'].append("{}".format(new_item_type))
                 rule_content['affected'] = rule_content['affected'] + affected_count
             else:
                 # Add the data to this rule.
-                rule_content = {'location': ss_item['location'], 'type': ss_item['type'], 'affected': affected_count}
+                rule_content = {'location': [ss_item['location']], 'type': [ss_item['type']], 'affected': affected_count}
                 new_rule = {r_name: rule_content}
                 self.matrix.append(new_rule)
         for view_item in self.matrix:
+            # TODO: Fix this for better reporting.
             sys.stdout.write("RULE -->: {}\n".format(view_item))
 
     # Adds default rules like reject items on hold for other branches or ILL customers.
