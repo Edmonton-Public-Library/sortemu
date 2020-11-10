@@ -104,7 +104,7 @@ class ConfigGenerator:
                 self.unhandled_rule_count += item_count
         if self._is_well_formed_(self.bins):
             self._compile_rules_(self.all_num_loc_typ_bin)
-            self._deduplicate_rules_()
+            self._compress_rules_()
         else:
             sys.stdout.write("There are errors in the spread sheet. Please fix them and re-run the application.\n")
             sys.exit(2)
@@ -147,22 +147,43 @@ class ConfigGenerator:
                 rule_content['affected'] = rule_content['affected'] + affected_count
             else:
                 # Add the data to this rule.
-                rule_content = {'location': [ss_item['location']], 'type': [ss_item['type']], 'affected': affected_count}
+                rule_content = {'location': [ss_item['location']], 'type': [ss_item['type']],
+                                'affected': affected_count}
                 new_rule = {r_name: rule_content}
                 self.matrix.append(new_rule)
 
-    # Deduplicate the locations and types if necessary.
-    def _deduplicate_rules_(self):
+    def __compress__(self, word_list):
+        word_list: list
+        for i in range(1, len(word_list)):
+            try:
+                if word_list[i - 1][0:3] == word_list[i][0:3]:
+                    word_list[i - 1] = "{}*".format(word_list[i - 1][0:3])
+                    word_list[i] = "{}*".format(word_list[i][0:3])
+            except IndexError: # If this word or the last word are less than 3 chars.
+                continue
+        # Deduplicate the list.
+        word_list = list(set(word_list))
+        return word_list
+
+    # Rules with similar prefixes can be reduced to one rule. For example, TEENFIC, TEENGEN, TEEMCOMIC
+    # can be reduced to TEEN*. This method does that. This method only looks at suffixes and the prefix
+    # must have at least 3 characters in length.
+    def _compress_rules_(self):
         for rule in self.matrix:
             rule: dict
             for key, value in rule.items():
-                rule[key]['location'] = list(set(rule[key]['location']))
-                rule[key]['type'] = list(set(rule[key]['type']))
+                value['location'] = self.__compress__(value['location'])
+                value['type'] = self.__compress__(value['type'])
 
     # Orders the matrix so testing flows from most specific rule matching to most general.
     # Other facets of the algorithm include ordering specific exception item types before
     # more general rules.
+    # A general rule of thumb is if items have to match on both location and type they must precede
+    # other rules that don't. The more columns in a spread sheet are needed to determine where the
+    # item goes, the higher in the list it goes. The exception is reject rules; holds for other
+    # libraries or ILL.
     def _order_rules_(self):
+        # Select rules with 2 or more rules first then select more conditions over fewer.
         pass
 
     # Adds default rules like reject items on hold for other branches or ILL customers.
