@@ -131,9 +131,8 @@ class ConfigGenerator:
                 self.unhandled_rule_count += item_count
         if self._is_well_formed_(self.bins):
             self._compile_rules_(self.all_num_loc_typ_bin)
+            self._order_rules_()
             self._compress_rules_()
-            if default_rules:
-                self.add_default_rules()
         else:
             sys.stdout.write("There are errors in the spread sheet. Please fix them and re-run the application.\n")
             sys.exit(2)
@@ -269,14 +268,63 @@ class ConfigGenerator:
     # item goes, the higher in the list it goes. The exception is reject rules; holds for other
     # libraries or ILL.
     def _order_rules_(self):
-        # Select rules with 2 or more rules first then select more conditions over fewer.
-        # TODO: Finish me
-        pass
+        # Rule ordering rules:
+        # 1) REJECT rules for holds fire first since any material with a hold should be handled as quickly as possible.
+        # 2) The more complex the rule are those that have values in both the locations and types (and  possibly more)
+        #    dictionaries. Place complex rules above simple (single) rules (where 0 is the highest position).
+        # 3) Place default rule for BAD_LOCATIONS above other single rules.
+        # 4) Rules that have only types should be listed higher than rules with just locations. This is because the
+        #    selection of a specific type is more uncommon than its location which could change, but a type is a
+        #    type, and is a finer filter so less likely to match than anything that just happens to be in a given
+        #    location.
+        # 5) Prefer rules that affect smaller number of items above others. If the rules are well formed
+        #    and well maintained this suggestion has no effect. However if someone adjusts the rules unskillfully and
+        #    inadvertently introduces a duplicate rule, their fly swatter fix has a chance of firing before the
+        #    bazooka rules that (may) come later.
+        # 6) The most general rule with the most affected items will appear at the bottom and can have its item
+        #    types removed.
+        # TODO: First order the reject rules, then order by most dicitionaries ordering them from least affected to
+        #  to most affected.
+        # * Reject rules are those marked with names: 'REJECT' as opposed to reject rules for BAD_LOCATIONS which are
+        # named with the name of the exception bin specifically.
+        new_matrix = []
+        # for rule in self.matrix:
+        #     rule: dict
+        #     for key, value in rule.items():
+        #         if key == "REJECT":
+        #             preferred_index: int = round(value['alert'] -1, None)
+        #             new_matrix.insert(preferred_index, {key: value})
+        # * Order by most dictionaries to just , least affected to most affected.
+        for rule in self.matrix:
+            rule: dict
+            if len(new_matrix) < 1:
+                new_matrix.append(rule)
+                continue
+            for key, value in rule.items():
+                for i in range(len(new_matrix)):
+                    for k, v in new_matrix[i].items():
+                        if value['affected'] <= v['affected']:
+                            new_matrix.insert(i, rule)
+                            break
+                    else:
+                        continue
+                    break
+                else:
+                    continue
+                break
+            else:
+                new_matrix.append(rule)
+
+        for rule in new_matrix:
+            rule: dict
+            for key, value in rule.items():
+                print("{} ==> {}".format(key, value))
 
     # Adds default rules like reject items on hold for other branches or ILL customers.
+    # TODO: read the default rules from spread sheet.
     def add_default_rules(self):
         reject_rule = {"R{}".format(self.exception_bin): {
-            "location": self.BAD_LOCATIONS, "type": ['*'], "affected": 0}}
+            "location": self.BAD_LOCATIONS, "type": [], "affected": 0}}
         self.matrix.append(reject_rule)
 
     # Writes the proposed matrix to the spread sheet. A new sheet is created at the end fo the
