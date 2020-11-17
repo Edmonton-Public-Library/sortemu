@@ -74,63 +74,82 @@ class ConfigGenerator:
         self.HOLD_TYPE: Dict[str, int] = {'ill': 3, 'branch': 2, 'hold': 1}
         # You may want to add or change this list.
         self.BAD_LOCATIONS = ["DISCARD", "MISSING", "STOLEN", "ON-ORDER", "NOF", "BINDERY", "UNKNOWN"]
+        # Keep count of the number of items in BAD_LOCATIONS so we can make a rule to catch them by default.
+        self.unknown_item_count = 0
         # The master matrix as an array (or List) of named rules. Their order matters. The smaller the index of
         # the rule, the sooner the rule is used for testing materials.
         self.matrix = []
-        workbook = xlrd.open_workbook(file)
-        worksheet = workbook.sheet_by_index(index)
         self.header_row = []  # The row where we stock the name of the column
-        # Ignore what the columns are called and use the names defined in self.col_name.
-        for column_name, col_index in self.COL_NAME.items():
-            self.header_row.append(column_name)
-        # transform the staff_selection_workbook to a list of dictionary
-        self.all_num_loc_typ_bin = []
-        self.handled_rule_count = 0
+        self.all_count_locn_type_cnum_binnum = []
+        self.handled_by_rule_count = 0
         self.unhandled_rule = []
-        self.unhandled_rule_count = 0
+        self.unhandled_items_count = 0
         self.bins = {}
         # These are computed to ensure all rules are accounted for and well-formed.
-        self.highest_bin = 0
+        self.highest_identified_bin = 0
         self.exception_bin = 0
         self.last_bin = 0
         self.malformed_rule_name_row = {}
         self.malformed_rule_item_count = 0
+
+        # Ignore what the columns are called and use the names defined in self.col_name.
+        workbook = xlrd.open_workbook(file)
+        worksheet = workbook.sheet_by_index(index)
+        for column_name, col_index in self.COL_NAME.items():
+            self.header_row.append(column_name)
+        # transform the staff_selection_workbook to a list of dictionies, building them up from the spread sheet
+        # row-by-row.
         for row in range(1, worksheet.nrows):
-            num_loc_typ_bin = {}
+            count_loc_typ_callnum_bin = {}
             item_count: int = 0
             for column_name, col_index in self.COL_NAME.items():
-                num_loc_typ_bin[self.header_row[col_index]] = worksheet.cell_value(row, col_index)
-            # If staff didn't identify a bin for this combo ignore it. It's probably a comment somewhere in the empty
-            # part of the spread sheet.
-            if num_loc_typ_bin['bin'] != '':
+                count_loc_typ_callnum_bin[self.header_row[col_index]] = worksheet.cell_value(row, col_index)
+            # If staff didn't identify a bin for this combo ignore it.
+            if count_loc_typ_callnum_bin['bin'] != '':
                 # Count the number of rules specified for each bin. We'll use this for reporting and for computing
                 # which bin is the exception bin if one isn't specifically added in the column.
                 # But check if staff put text in the 'Bin #' column instead of an actual bin number. Sheesh.
                 # If the number format hasn't been set to integer in the spreadsheet coerce it now.
-                item_count = self._get_count_or_default_rules_(num_loc_typ_bin['count'])
+                item_count = self._get_integer_(count_loc_typ_callnum_bin['count'])
                 try:
-                    my_bin_key: int = int(num_loc_typ_bin['bin'])
+                    my_bin_key: int = round(count_loc_typ_callnum_bin['bin'], None)
                 except ValueError:
                     # Since we couldn't make the entry an integer, issue a warning to staff to fix it.
+                    #TODO: Check the valid keyword 'REJECT' isn't in this column.
                     if debug:  # These get reported in the report.
                         sys.stdout.write(" **WARN: invalid bin assignment '{}' on spread sheet row {}.\n".format(
-                            num_loc_typ_bin['bin'], row + 1))
-                    self.malformed_rule_name_row[num_loc_typ_bin['bin']] = row + 1
+                            count_loc_typ_callnum_bin['bin'], row + 1))
+                    self.malformed_rule_name_row[count_loc_typ_callnum_bin['bin']] = row + 1
                     self.malformed_rule_item_count += item_count
                     continue
                 if my_bin_key in self.bins:
                     self.bins[my_bin_key] += 1
                 else:
                     self.bins[my_bin_key] = 1
-                self.all_num_loc_typ_bin.append(num_loc_typ_bin)
+                self.all_count_locn_type_cnum_binnum.append(count_loc_typ_callnum_bin)
                 # Add the count of items from the first column to the total.
-                self.handled_rule_count += item_count
-            else:  # The bin isn't specified so they these items are inferred to be going to exception.
+                self.handled_by_rule_count += item_count
+            else:# The bin isn't specified so they these items are inferred to be going to exception.
                 # Do these rules have any use? Is it just the counts we need?
-                self.unhandled_rule.append(num_loc_typ_bin)
-                self.unhandled_rule_count += item_count
+                self.unhandled_rule.append(count_loc_typ_callnum_bin)
+                self.unhandled_items_count += item_count
+            # See if the location is one of the BAD_LOCATIONS and count up how many we get regardless if staff ID'd
+            # a bin for them.
+            if count_loc_typ_callnum_bin['location'] in self.BAD_LOCATIONS:
+                try:
+                    self.unknown_item_count += item_count
+                except ValueError:
+                    pass
         if self._is_well_formed_(self.bins):
-            self._compile_rules_(self.all_num_loc_typ_bin)
+            self._compile_rules_(self.all_count_locn_type_cnum_binnum)
+            # Add the default rule for unknown items to the new matrix, it will ensure there is at least one rule
+            # on the matrix when we loop through for comparison. If you remove it, you will have to check if the
+            # new_matrix has any items or the loop below will fail the first test and nothing will be added.
+            if self.unknown_item_count > 0:
+                bad_locn_rule = {"R{}".format(self.exception_bin): dict(location=self.BAD_LOCATIONS, type=['*'],
+                                                                        callnum=['*'],
+                                                                        affected=self.unknown_item_count)}
+                self.matrix.append(bad_locn_rule)
             self._order_rules_()
             self._compress_rules_()
         else:
@@ -138,39 +157,21 @@ class ConfigGenerator:
             sys.exit(2)
         # Print out all the rules as JSON.
         if debug:
-            sys.stdout.write(">>> JSON sorter rules:\n{0}\n\n".format(self.all_num_loc_typ_bin))
+            sys.stdout.write(">>> JSON sorter rules:\n{0}\n\n".format(self.all_count_locn_type_cnum_binnum))
 
     # Gets the item count if the column contains a number but populate default rules if it contains 'hold*'
     # in any case. In that case create default rules.
     # param:  The count as a string.
     # return: count of items in the catalog with this combination of location and item type, or 0 if the column
     # contains hold rules.
-    def _get_count_or_default_rules_(self, count_str):
+    def _get_integer_(self, count_str):
         # Default to 0 so hold rules don't artificially inflate numbers of items affected by rules.
         item_count = 0
         try:
             item_count: int = round(count_str, None)
         except TypeError:
-            if re.findall(r"hold\b", count_str.lower()):
-                if re.findall(r"ill", count_str.lower()):
-                    # Add the default rule to send ILL holds to the exception bin.
-                    reject_rule = {"REJECT": {
-                        "location": ['*'], "type": ['*'], "affected": 0, "alert": self.HOLD_TYPE['ill']}}
-                    self.matrix.append(reject_rule)
-                elif re.findall(r"branch", count_str.lower()):
-                    # Add the default rule to send holds for other branches to the exception bin.
-                    reject_rule = {"REJECT": {
-                        "location": ['*'], "type": ['*'], "affected": 0, "alert": self.HOLD_TYPE['branch']}}
-                    self.matrix.append(reject_rule)
-                else:
-                    # Add default rule for sending holds for other branches to the exception bin.
-                    reject_rule = {"REJECT": {
-                        "location": ['*'], "type": ['*'], "affected": 0, "alert": self.HOLD_TYPE['hold']}}
-                    self.matrix.append(reject_rule)
-            else:
-                # There was no mention of hold in the parameter count_str.
-                sys.stderr.write("**error: invalid value found in count field. Expected an integer or\n"
-                                 "'hold', 'branch hold' or 'ILL hold' but got '{}'.\n".format(count_str))
+            # There was no mention of hold in the parameter count_str.
+            sys.stderr.write("**error: invalid value found. Expected an integer but got '{}'.\n".format(count_str))
         return item_count
 
     # Helper function to find a named dictionary in the List of rules.
@@ -272,6 +273,7 @@ class ConfigGenerator:
         # 1) REJECT rules for holds fire first since any material with a hold should be handled as quickly as possible.
         # 2) The more complex the rule are those that have values in both the locations and types (and  possibly more)
         #    dictionaries. Place complex rules above simple (single) rules (where 0 is the highest position).
+        #    Rules where one or more dictionaries have no entries are less complex.
         # 3) Place default rule for BAD_LOCATIONS above other single rules.
         # 4) Rules that have only types should be listed higher than rules with just locations. This is because the
         #    selection of a specific type is more uncommon than its location which could change, but a type is a
@@ -288,22 +290,45 @@ class ConfigGenerator:
         # * Reject rules are those marked with names: 'REJECT' as opposed to reject rules for BAD_LOCATIONS which are
         # named with the name of the exception bin specifically.
         new_matrix = []
-        # for rule in self.matrix:
-        #     rule: dict
-        #     for key, value in rule.items():
-        #         if key == "REJECT":
-        #             preferred_index: int = round(value['alert'] -1, None)
-        #             new_matrix.insert(preferred_index, {key: value})
-        # * Order by most dictionaries to just , least affected to most affected.
+        hierarchy_score: int = 0
+        # Order the rules by high and low order, and sort.
+        #
+        # v is a dict: {"location": ['*'], "type": ['*'], "affected": 0, "alert": 3}
+        # Add another attribute called 'score' which will be used to order the rules based on an algorithm described
+        # below. However add the 'REJECT' rules first since they would score quite low in the algorithm but need to
+        # appear before all others.
         for rule in self.matrix:
             rule: dict
-            if len(new_matrix) < 1:
-                new_matrix.append(rule)
-                continue
+            for key, value in rule.items():
+                if key == "REJECT":
+                    value['score'] = round(value['alert'], 2) * 100.0
+                    continue
+                # Count how many rules and compute 'score' where higher scores put rules higher in the matrix.
+                hierarchy_score = 0
+                for k, v in value.items():
+                    # the rule that has item rules will get double points.
+                    if k == 'type':
+                        hierarchy_score += round(len(v) * 2, 2)
+                    elif k == 'location':
+                        # The complexity of the location rules counts one-for-one.
+                        hierarchy_score += round(len(v), 2)
+                    elif k == 'affected':
+                        # The more items are affected, the lower in the matrix they go so less gregarious rules have
+                        # a chance to fire before the really big gregarious rules.
+                        try:
+                            hierarchy_score += round((1.0 / v) * 100.0, 2)
+                        except ZeroDivisionError:
+                            # "REJECT" rules have an effect on 0 known items.
+                            hierarchy_score += round(100.0, 2)
+                value['score'] = hierarchy_score
+
+        # * Order dictionaries by score.
+        for rule in self.matrix:
+            rule: dict
             for key, value in rule.items():
                 for i in range(len(new_matrix)):
                     for k, v in new_matrix[i].items():
-                        if value['affected'] <= v['affected']:
+                        if v['score'] <= value['score']:
                             new_matrix.insert(i, rule)
                             break
                     else:
@@ -314,18 +339,22 @@ class ConfigGenerator:
                 break
             else:
                 new_matrix.append(rule)
-
+        # Add rules to reject materials for other branches or ILL holds.
+        hold_rule = dict(REJECT={
+            "location": ['*'], "type": ['*'], "callnum": ['*'], "affected": 0, "alert": self.HOLD_TYPE['ill']})
+        new_matrix.insert(0, hold_rule)
+        hold_rule = dict(REJECT={
+            "location": ['*'], "type": ['*'], "callnum": ['*'], "affected": 0, "alert": self.HOLD_TYPE['branch']})
+        new_matrix.insert(0, hold_rule)
+        hold_rule = dict(REJECT={
+            "location": ['*'], "type": ['*'], "callnum": ['*'], "affected": 0, "alert": self.HOLD_TYPE['hold']})
+        new_matrix.insert(0, hold_rule)
+        # And display the results.
         for rule in new_matrix:
             rule: dict
             for key, value in rule.items():
                 print("{} ==> {}".format(key, value))
-
-    # Adds default rules like reject items on hold for other branches or ILL customers.
-    # TODO: read the default rules from spread sheet.
-    def add_default_rules(self):
-        reject_rule = {"R{}".format(self.exception_bin): {
-            "location": self.BAD_LOCATIONS, "type": [], "affected": 0}}
-        self.matrix.append(reject_rule)
+        self.matrix = new_matrix
 
     # Writes the proposed matrix to the spread sheet. A new sheet is created at the end fo the
     # document with the proposed rules written in columns.
@@ -354,18 +383,18 @@ class ConfigGenerator:
                              .format(len(self.bins.items())))
             return False
         for my_bin, count in sorted(bins.items()):
-            if my_bin > self.highest_bin:
-                self.highest_bin = my_bin
+            if my_bin > self.highest_identified_bin:
+                self.highest_identified_bin = my_bin
             if debug:
                 sys.stdout.write("Bin: {0} was identified {1} times\n".format(my_bin, count))
         # If highest_bin is even then the exception bin is highest_bin +1.
-        if self.highest_bin % 2 == 0:
+        if self.highest_identified_bin % 2 == 0:
             # No items were identified specifically as going into the exception bin.
-            self.exception_bin = self.highest_bin + 1
-            self.last_bin = self.highest_bin
+            self.exception_bin = self.highest_identified_bin + 1
+            self.last_bin = self.highest_identified_bin
         else:
-            self.exception_bin = self.highest_bin
-            self.last_bin = self.highest_bin - 1
+            self.exception_bin = self.highest_identified_bin
+            self.last_bin = self.highest_identified_bin - 1
         # Test for missing bins.
         # Given: {'1': 84, '2': 76, '3': 13, '4': 5}
         rule_count = 1
@@ -385,25 +414,25 @@ class ConfigGenerator:
     def report(self):
         if debug:
             sys.stdout.write("Highest bin: {0}, last bin: {1}, and exception bin is {2}.\n"
-                             .format(self.highest_bin, self.last_bin, self.exception_bin))
+                             .format(self.highest_identified_bin, self.last_bin, self.exception_bin))
         # Report rule coverage.
         sys.stdout.write("Rule coverage:\n")
-        total_items = self.handled_rule_count + self.unhandled_rule_count
-        percent_sort: float = round((self.handled_rule_count / total_items) * 100.0, 1)
+        total_items = self.handled_by_rule_count + self.unhandled_items_count
+        percent_sort: float = round((self.handled_by_rule_count / total_items) * 100.0, 1)
         percent_ignored: float = round(100.0 - percent_sort, 1)
         sys.stdout.write(
-            f"{len(self.all_num_loc_typ_bin):0.0f} rules cover {self.handled_rule_count:0.0f} location/items pairs or "
-            f"{percent_sort:0.1f}% of the catalog.\n")
+            f"Staff ID'd {len(self.all_count_locn_type_cnum_binnum):0.0f} location / items pairs cover "
+            f"{self.handled_by_rule_count:0.0f} items, or {percent_sort:0.1f}% of the catalog.\n")
         if percent_ignored > 0.0:
             sys.stdout.write(
                 "{:0.0f} rule(s) weren\'t addressed leaving {:0.0f} items or {:0.1f}% of items to fall into "
-                "exception bin.\n".format(len(self.unhandled_rule), self.unhandled_rule_count, percent_ignored))
+                "exception bin.\n".format(len(self.unhandled_rule), self.unhandled_items_count, percent_ignored))
         # Now report the errors in the spread sheet.
         if self.malformed_rule_item_count > 0:
-            sys.stdout.write("\n**WARN: {} items will fail sortation because their bin assignments in the "
-                             "spread sheet are invalid.\n".format(self.malformed_rule_item_count))
+            sys.stdout.write("\n**WARN: {} items will fail sortation because their bin assignment(s) in the "
+                             "spread sheet are invalid. See below.\n".format(self.malformed_rule_item_count))
             for bad_bin, ss_row in self.malformed_rule_name_row.items():
-                sys.stdout.write("  bin assignment '{}' on row {}.\n".format(bad_bin, ss_row))
+                sys.stdout.write("  Invalid bin assignment '{}' on row {}.\n".format(bad_bin, ss_row))
         for view_item in self.matrix:
             # TODO: Fix this for better reporting.
             sys.stdout.write("RULE -->: {}\n".format(view_item))
@@ -439,9 +468,6 @@ if __name__ == "__main__":
                         required=False,
                         help="The zero-based index of the staff-selection sheet within the XSLS file. "
                              "Default 0, or the first sheet in the spreadsheet.")
-    parser.add_argument("--default_rules", action="store", default="True", type=str, required=False,
-                        help="'True' (default) or 'False'. Add default rules that will send material from special "
-                             "locations like 'BINDERY', or 'DISCARD' to the exception bin.")
     args = parser.parse_args()
     # The path/spread_sheet.xsls
     input_file = args.in_file
@@ -463,10 +489,6 @@ if __name__ == "__main__":
     debug = False
     if args.debug == "True":
         debug = True
-    # Handle default rules like rejecting materials on hold for other branches.
-    default_rules = True
-    if args.default_rules == "False":
-        default_rules = False
     # Logic starts here.
     if debug:
         sys.stdout.write("input_file: {0}\n".format(input_file))
