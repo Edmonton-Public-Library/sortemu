@@ -74,8 +74,9 @@ class ConfigGenerator:
         self.HOLD_TYPE: Dict[str, int] = {'ill': 3, 'branch': 2, 'hold': 1}
         # You may want to add or change this list.
         self.BAD_LOCATIONS = ["DISCARD", "MISSING", "STOLEN", "ON-ORDER", "NOF", "BINDERY", "UNKNOWN"]
+        self.BAD_TYPES = []
         # Keep count of the number of items in BAD_LOCATIONS so we can make a rule to catch them by default.
-        self.unknown_item_count = 0
+        self.rejected_item_count = 0
         # The master matrix as an array (or List) of named rules. Their order matters. The smaller the index of
         # the rule, the sooner the rule is used for testing materials.
         self.matrix = []
@@ -104,24 +105,39 @@ class ConfigGenerator:
             item_count: int = 0
             for column_name, col_index in self.COL_NAME.items():
                 count_loc_typ_callnum_bin[self.header_row[col_index]] = worksheet.cell_value(row, col_index)
+            # See if the location is one of the BAD_LOCATIONS keep a count and don't add it to any rule
+            # Count the number of rules specified for each bin. We'll use this for reporting and for computing
+            # which bin is the exception bin if one isn't specifically added in the column.
+            # But check if staff put text in the 'Bin #' column instead of an actual bin number. Sheesh.
+            # If the number format hasn't been set to integer in the spreadsheet coerce it now.
+            item_count = self._get_integer_(count_loc_typ_callnum_bin['count'])
+            if count_loc_typ_callnum_bin['type'] in self.BAD_TYPES:
+                # TODO: Add switch so users can specify bad types, and code to add a bad item type rule.
+                self.rejected_item_count += item_count
+                # Carry on to the next line in the spread sheet without further processing. Stops bad types
+                # ending up in the matrix. They are added explicitly later.
+                continue
+            if count_loc_typ_callnum_bin['location'] in self.BAD_LOCATIONS:
+                self.rejected_item_count += item_count
+                # Carry on to the next line in the spread sheet without further processing. Stops bad locations
+                # ending up in the matrix. They are added explicitly later.
+                continue
             # If staff didn't identify a bin for this combo ignore it.
             if count_loc_typ_callnum_bin['bin'] != '':
-                # Count the number of rules specified for each bin. We'll use this for reporting and for computing
-                # which bin is the exception bin if one isn't specifically added in the column.
-                # But check if staff put text in the 'Bin #' column instead of an actual bin number. Sheesh.
-                # If the number format hasn't been set to integer in the spreadsheet coerce it now.
-                item_count = self._get_integer_(count_loc_typ_callnum_bin['count'])
                 try:
                     my_bin_key: int = round(count_loc_typ_callnum_bin['bin'], None)
                 except ValueError:
                     # Since we couldn't make the entry an integer, issue a warning to staff to fix it.
-                    #TODO: Check the valid keyword 'REJECT' isn't in this column.
-                    if debug:  # These get reported in the report.
-                        sys.stdout.write(" **WARN: invalid bin assignment '{}' on spread sheet row {}.\n".format(
-                            count_loc_typ_callnum_bin['bin'], row + 1))
-                    self.malformed_rule_name_row[count_loc_typ_callnum_bin['bin']] = row + 1
-                    self.malformed_rule_item_count += item_count
-                    continue
+                    if count_loc_typ_callnum_bin['bin'].upper() == "REJECT":
+                        # TODO: We don't know what the reject bin is at this point but should handle these somehow later.
+                        pass
+                    else:
+                        if debug:  # These get reported in the report.
+                            sys.stdout.write(" **WARN: invalid bin assignment '{}' on spread sheet row {}.\n".format(
+                                count_loc_typ_callnum_bin['bin'], row + 1))
+                        self.malformed_rule_name_row[count_loc_typ_callnum_bin['bin']] = row + 1
+                        self.malformed_rule_item_count += item_count
+                        continue
                 if my_bin_key in self.bins:
                     self.bins[my_bin_key] += 1
                 else:
@@ -133,25 +149,19 @@ class ConfigGenerator:
                 # Do these rules have any use? Is it just the counts we need?
                 self.unhandled_rule.append(count_loc_typ_callnum_bin)
                 self.unhandled_items_count += item_count
-            # See if the location is one of the BAD_LOCATIONS and count up how many we get regardless if staff ID'd
-            # a bin for them.
-            if count_loc_typ_callnum_bin['location'] in self.BAD_LOCATIONS:
-                try:
-                    self.unknown_item_count += item_count
-                except ValueError:
-                    pass
         if self._is_well_formed_(self.bins):
             self._compile_rules_(self.all_count_locn_type_cnum_binnum)
             # Add the default rule for unknown items to the new matrix, it will ensure there is at least one rule
             # on the matrix when we loop through for comparison. If you remove it, you will have to check if the
             # new_matrix has any items or the loop below will fail the first test and nothing will be added.
-            if self.unknown_item_count > 0:
+            if self.rejected_item_count > 0:
                 bad_locn_rule = {"R{}".format(self.exception_bin): dict(location=self.BAD_LOCATIONS, type=['*'],
                                                                         callnum=['*'],
-                                                                        affected=self.unknown_item_count)}
+                                                                        affected=self.rejected_item_count)}
                 self.matrix.append(bad_locn_rule)
             self._order_rules_()
             self._compress_rules_()
+            self._tidy_()
         else:
             sys.stdout.write("There are errors in the spread sheet. Please fix them and re-run the application.\n")
             sys.exit(2)
@@ -410,6 +420,15 @@ class ConfigGenerator:
             rule_count += 1
         return True
 
+    # Cleans adds '*' fields to empty arrays.
+    def _tidy_(self):
+        for rule in self.matrix:
+            rule: dict
+            for key, value in rule.items():
+                if isinstance(value, list):
+                    if len(value) < 1:
+                        value.append('*')
+
     # Prints out useful information about how well staff covered the majority of items from the spreadsheet.
     def report(self):
         if debug:
@@ -421,7 +440,7 @@ class ConfigGenerator:
         percent_sort: float = round((self.handled_by_rule_count / total_items) * 100.0, 1)
         percent_ignored: float = round(100.0 - percent_sort, 1)
         sys.stdout.write(
-            f"Staff ID'd {len(self.all_count_locn_type_cnum_binnum):0.0f} location / items pairs cover "
+            f"Staff ID'd {len(self.all_count_locn_type_cnum_binnum):0.0f} location / item pairs cover "
             f"{self.handled_by_rule_count:0.0f} items, or {percent_sort:0.1f}% of the catalog.\n")
         if percent_ignored > 0.0:
             sys.stdout.write(
