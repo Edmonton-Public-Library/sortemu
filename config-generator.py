@@ -23,12 +23,7 @@
 # Staff may choose to identify materials to go to the exception bin, but
 # these can be ignored.
 #
-# TODO: 2 Add a default rule before any single column rule for DAMAGE,MISSING,DISCARD,*ORDER,BINDERY,UNKNOWN,NOF.
-#  better yet read these from a different sheet along with ILL and hold rules.
-# TODO: Add optional default sort routes for holds for other libraries.
-# TODO: Compile rules into optimized format.
-# TODO: Export 3CS file as XML
-#  and allow user to write proposed matrix back to the spread sheet.
+# TODO: Export 3CS file as XML and allow user to write proposed matrix back to the spread sheet.
 #######################################################################################################################
 import xlrd
 import sys
@@ -70,6 +65,23 @@ class ConfigGenerator:
         # The fewest number of bins permissible on any sorter real or fictional.
         self.MIN_BINS = 3
         self.COL_NAME: Dict[str, int] = {'count': 0, 'location': 1, 'type': 2, 'callnum': 3, 'bin': 4}
+        self.ALT_SORT_CRITERIA: list[str] = [
+            "Alert",              # 'alert'
+            "AlertType",          # HOLD_TYPE
+            "MagneticMedia",
+            "MediaType",
+            "PermanentLocation",  # 'location'
+            "DestinationLocation",
+            "CollectionCode",     # 'type'
+            "CallNumber",         # 'callnum'
+            "SortBin",
+            "BranchId",
+            "LibraryId",
+            "CheckInResult",
+            "CustomTagData",
+            "DetectionSource",
+            "TargetRouteName"
+        ]
         # TODO: Check the alert types are correct.
         self.HOLD_TYPE: Dict[str, int] = {'ill': 3, 'branch': 2, 'hold': 1}
         # You may want to add or change this list.
@@ -103,8 +115,12 @@ class ConfigGenerator:
         for row in range(1, worksheet.nrows):
             count_loc_typ_callnum_bin = {}
             item_count: int = 0
+            # These are the minumum rows from the spread sheet.
             for column_name, col_index in self.COL_NAME.items():
                 count_loc_typ_callnum_bin[self.header_row[col_index]] = worksheet.cell_value(row, col_index)
+            # These are required to define a matrix completely but most are irrelivant to the final output.
+            for column_name in self.ALT_SORT_CRITERIA:
+                count_loc_typ_callnum_bin[column_name] = ['*']
             # See if the location is one of the BAD_LOCATIONS keep a count and don't add it to any rule
             # Count the number of rules specified for each bin. We'll use this for reporting and for computing
             # which bin is the exception bin if one isn't specifically added in the column.
@@ -375,8 +391,51 @@ class ConfigGenerator:
     # This method is used to create the XML version of the 3SC file used to upload to each of the induction
     # units on the sorter.
     def write_config_file(self, file_name):
-        # TODO: Finish me
-        pass
+        # Overwrite the file if it exists.
+        f = open(file_name, 'w')
+        f.write("<?xml version=\"1.0\"?>\n")
+        f.write("<ArrayOfSortRouteCriteria "
+                "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">\n")
+        # Write the rules to XML one by one in order from self.matrix.
+        for line in self.matrix:
+            f.write("  <SortRouteCriteria>\n")
+            for bin_name, rule_dict in line.items():
+                # "Alert",  # alert
+                # "AlertType",  # HOLD_TYPE
+                if 'alert' in rule_dict:
+                    f.write("    <Alert>{}</Alert>\n".format('Y'))
+                else:
+                    f.write("    <Alert>{}</Alert>\n".format('*'))
+                f.write("    <AlertType>{}</AlertType>\n".format(rule_dict.get('alert', '*')))
+                # "MagneticMedia",
+                f.write("    <MagneticMedia>*</MagneticMedia>\n")
+                # "MediaType",
+                f.write("    <MediaType>*</MediaType>\n")
+                # "PermanentLocation",  # 'location'
+                f.write("    <PermanentLocation>{}</PermanentLocation>\n".format(', '.join(rule_dict.get('location', '*'))))
+                # "DestinationLocation",
+                f.write("    <DestinationLocation>*</DestinationLocation>\n")
+                # "CollectionCode",  # 'type'
+                f.write("    <CollectionCode>{}</CollectionCode>\n".format(', '.join(rule_dict.get('type', '*'))))
+                # "CallNumber",  # 'callnum'
+                f.write("    <CallNumber>{}</CallNumber>\n".format(', '.join(rule_dict.get('callnum', '*'))))
+                # "SortBin",
+                f.write("    <SortBin>*</SortBin>\n")
+                # "BranchId",
+                f.write("    <BranchId>*</BranchId>\n")
+                # "LibraryId", ## This may change because the user can specify a library on command line.
+                f.write("    <LibraryId>*</LibraryId>\n")
+                # "CheckInResult",
+                f.write("    <CheckInResult>*</CheckInResult>\n")
+                # "CustomTagData",
+                f.write("    <CustomTagData>*</CustomTagData>\n")
+                # "DetectionSource",
+                f.write("    <DetectionSource>*</DetectionSource>\n")
+                # "TargetRouteName"
+                f.write("    <TargetRouteName>{}</TargetRouteName>\n".format(bin_name))
+            f.write("  </SortRouteCriteria>\n")
+        f.write("</ArrayOfSortRouteCriteria>\n\n")
 
     # Staff have the option of either specifying that certain location/iType combinations should go to the exception
     # bin, but it is not required. If not specified the highest even bin number is taken to be the second last sorter
@@ -514,10 +573,9 @@ if __name__ == "__main__":
         sys.stdout.write("sheet_index: {0}\n".format(sheet_index))
 
     sorter_configurator = ConfigGenerator(input_file, sheet_index)
-
+    # Output xml file if requested.
     if args.out_file:
         xml_config = args.out_file
-        # TODO: Test and report if directory and or file exist and report or exit.
         sorter_configurator.write_config_file(xml_config)
     if args.write_spread_sheet != unset_sheet_name:
         ss_sheet_name = args.write_spread_sheet
