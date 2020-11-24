@@ -4,7 +4,7 @@
 # Compile a sort matrix.
 # Requires all ILS locations and iTypes combinations with counts.
 #
-# selitem -olt | pipe.pl -dc0,c1 -A -P -TCSV_UTF-8:"Count,Loc,iTyp"
+# selitem -olt | pipe.pl -dc0,c1 -A -P -TCSV_UTF-8:"Count,Loc,iTyp,callNum,bin"
 #
 # With this staff can order the list by counts and add their preferred bin
 # number to the 'Bin #' column. Rare loc/itype combinations can be ignored
@@ -23,7 +23,9 @@
 # Staff may choose to identify materials to go to the exception bin, but
 # these can be ignored.
 #
-# TODO: Export 3CS file as XML and allow user to write proposed matrix back to the spread sheet.
+# Typical use: python3 config-generator.py --in_file=./IDY_Bin_Mapping.xlsx -d True --out_file="./test.3SC"
+#
+# TODO: Allow user to write proposed matrix back to the spread sheet.
 #######################################################################################################################
 import xlrd
 import sys
@@ -311,8 +313,7 @@ class ConfigGenerator:
         #    bazooka rules that (may) come later.
         # 6) The most general rule with the most affected items will appear at the bottom and can have its item
         #    types removed.
-        # TODO: First order the reject rules, then order by most dicitionaries ordering them from least affected to
-        #  to most affected.
+        # 
         # * Reject rules are those marked with names: 'REJECT' as opposed to reject rules for BAD_LOCATIONS which are
         # named with the name of the exception bin specifically.
         new_matrix = []
@@ -384,9 +385,48 @@ class ConfigGenerator:
 
     # Writes the proposed matrix to the spread sheet. A new sheet is created at the end fo the
     # document with the proposed rules written in columns.
-    def write_matrix_to_ss(self, named_sheet):
-        # TODO: Finish me
-        pass
+    def write_matrix_to_csv(self, file_name):
+        # Overwrite the file if it exists.
+        # TODO: Test me.
+        f = open(file_name, 'w')
+        f.write("TargetRouteName,Alert,AlertType,MagneticMedia,MediaType,PermanentLocation,DestinationLocation,"
+                "CollectionCode,CallNumber,SortBin,BranchId,LibraryId,CheckInResult,CustomTagData,DetectionSource\n")
+        # Write the rules to XML one by one in order from self.matrix.
+        for line in self.matrix:
+            for bin_name, rule_dict in line.items():
+                # "TargetRouteName"
+                f.write("{},".format(bin_name))
+                # "Alert",  # alert
+                # "AlertType",  # HOLD_TYPE
+                if 'alert' in rule_dict:
+                    f.write("{},".format('Y'))
+                else:
+                    f.write("{},".format('*'))
+                f.write("{},".format(rule_dict.get('alert', '*')))
+                # "MagneticMedia",
+                f.write("{},".format('*'))
+                # "MediaType",
+                f.write("{},".format('*'))
+                # "PermanentLocation",  # 'location'
+                f.write("\"{}\",".format(', '.join(rule_dict.get('location', '*'))))
+                # "DestinationLocation",
+                f.write("{},".format('*'))
+                # "CollectionCode",  # 'type'
+                f.write("\"{}\",".format(', '.join(rule_dict.get('type', '*'))))
+                # "CallNumber",  # 'callnum'
+                f.write("\"{}\",".format(', '.join(rule_dict.get('callnum', '*'))))
+                # "SortBin",
+                f.write("{},".format('*'))
+                # "BranchId",
+                f.write("{},".format('*'))
+                # "LibraryId", ## This may change because the user can specify a library on command line.
+                f.write("{},".format('*'))
+                # "CheckInResult",
+                f.write("{},".format('*'))
+                # "CustomTagData",
+                f.write("{},".format('*'))
+                # "DetectionSource",
+                f.write("{}\n".format('*'))
 
     # This method is used to create the XML version of the 3SC file used to upload to each of the induction
     # units on the sorter.
@@ -513,13 +553,14 @@ class ConfigGenerator:
                 sys.stdout.write("  Invalid bin assignment '{}' on row {}.\n".format(bad_bin, ss_row))
         for view_item in self.matrix:
             # TODO: Fix this for better reporting.
+            #  Kinda like _tidy_() but substitute 3M names for column headers.
             sys.stdout.write("RULE -->: {}\n".format(view_item))
 
 
 # Staff should be given a spreadsheet whose first sheet includes the header 'Count, Locations, iTypes, Bin #".
 
 if __name__ == "__main__":
-    unset_sheet_name: str = "__UNSET__"
+    csv_name: str = "__UNSET__"
     parser = argparse.ArgumentParser(description="Generates optimized sorter config from a Microsoft XSLS file.")
     parser.add_argument("-c", "--compression", default=3, action="store", type=int, required=False,
                         help="Sets the compression level when wildcard-ing locations and item types. For example, "
@@ -542,13 +583,13 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--sheet_index", default=0, action="store", type=int, required=False,
                         help="The zero-based index of the staff-selection sheet within the XSLS file. "
                              "Default 0, or the first sheet in the spreadsheet.")
-    parser.add_argument("-w", "--write_spread_sheet", default=unset_sheet_name, action="store", type=str,
+    parser.add_argument("-w", "--write_csv", action="store", type=str,
                         required=False,
-                        help="The zero-based index of the staff-selection sheet within the XSLS file. "
-                             "Default 0, or the first sheet in the spreadsheet.")
+                        help="Output the resultant configuration file as a CSV.")
     args = parser.parse_args()
     # The path/spread_sheet.xsls
     input_file = args.in_file
+    # The minimum glob string length.
     compression = 3
     if args.compression:
         compression = args.compression
@@ -577,9 +618,9 @@ if __name__ == "__main__":
     if args.out_file:
         xml_config = args.out_file
         sorter_configurator.write_config_file(xml_config)
-    if args.write_spread_sheet != unset_sheet_name:
-        ss_sheet_name = args.write_spread_sheet
+    if args.write_csv:
+        csv_path_file = args.write_csv
         # TODO: Test and report if the sheet already exists and add a new suffix to it to
         #  make the sheet name unique.
-        sorter_configurator.write_matrix_to_ss(ss_sheet_name)
+        sorter_configurator.write_matrix_to_csv(csv_path_file)
     sorter_configurator.report()
