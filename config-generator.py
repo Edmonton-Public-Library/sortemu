@@ -25,7 +25,23 @@
 #
 # Typical use: python3 config-generator.py --in_file=./IDY_Bin_Mapping.xlsx -d True --out_file="./test.3SC"
 #
-# TODO: Allow user to write proposed matrix back to the spread sheet.
+# Copyright (c) 2020 Andrew Nisbet
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA 02110-1301, USA.
+#
 #######################################################################################################################
 import xlrd
 import sys
@@ -147,7 +163,10 @@ class ConfigGenerator:
                 except ValueError:
                     # Since we couldn't make the entry an integer, issue a warning to staff to fix it.
                     if count_loc_typ_callnum_bin['bin'].upper() == "REJECT":
-                        # TODO: We don't know what the reject bin is at this point but should handle these somehow later.
+                        # TODO: We don't know what the reject bin is at this point but should handle these somehow
+                        #  For now it isn't a problem because if it is REJECT these definitions won't be reflected
+                        #  in the matrix, which means they won't be recognized by the sorter, which will then punt
+                        #  them to the exception bin anyway.
                         pass
                     else:
                         if debug:  # These get reported in the report.
@@ -387,7 +406,6 @@ class ConfigGenerator:
     # document with the proposed rules written in columns.
     def write_matrix_to_csv(self, file_name):
         # Overwrite the file if it exists.
-        # TODO: Test me.
         f = open(file_name, 'w')
         f.write("TargetRouteName,Alert,AlertType,MagneticMedia,MediaType,PermanentLocation,DestinationLocation,"
                 "CollectionCode,CallNumber,SortBin,BranchId,LibraryId,CheckInResult,CustomTagData,DetectionSource\n")
