@@ -391,7 +391,7 @@ class ConfigGenerator:
         f = open(file_name, 'w')
         f.write("TargetRouteName,Alert,AlertType,MagneticMedia,MediaType,PermanentLocation,DestinationLocation,"
                 "CollectionCode,CallNumber,SortBin,BranchId,LibraryId,CheckInResult,CustomTagData,DetectionSource\n")
-        # Write the rules to XML one by one in order from self.matrix.
+        # Write the rules to CSV one by one in order from self.matrix.
         for line in self.matrix:
             for bin_name, rule_dict in line.items():
                 # "TargetRouteName"
@@ -520,7 +520,7 @@ class ConfigGenerator:
         return True
 
     # Cleans adds '*' fields to empty arrays.
-    def _tidy_(self):
+    def _tidy_(self, use_3M_names=False):
         for rule in self.matrix:
             rule: dict
             for key, value in rule.items():
@@ -552,9 +552,44 @@ class ConfigGenerator:
             for bad_bin, ss_row in self.malformed_rule_name_row.items():
                 sys.stdout.write("  Invalid bin assignment '{}' on row {}.\n".format(bad_bin, ss_row))
         for view_item in self.matrix:
-            # TODO: Fix this for better reporting.
-            #  Kinda like _tidy_() but substitute 3M names for column headers.
             sys.stdout.write("RULE -->: {}\n".format(view_item))
+        # Output the rules as they would look in the web interface
+        sys.stdout.write("\nSuggested rules are as follows.\n")
+        for line in self.matrix:
+            for bin_name, rule_dict in line.items():
+                # "TargetRouteName"
+                sys.stdout.write("RULE=>{}{:>6}, ".format('{', bin_name))
+                # "Alert",  # alert
+                # "AlertType",  # HOLD_TYPE
+                if 'alert' in rule_dict:
+                    sys.stdout.write("{}, ".format('Y'))
+                else:
+                    sys.stdout.write("{}, ".format('*'))
+                sys.stdout.write("{}, ".format(rule_dict.get('alert', '*')))
+                # "MagneticMedia",
+                sys.stdout.write("{}, ".format('*'))
+                # "MediaType",
+                sys.stdout.write("{}, ".format('*'))
+                # "PermanentLocation",  # 'location'
+                sys.stdout.write("{}, ".format('|'.join(rule_dict.get('location', '*'))))
+                # "DestinationLocation",
+                sys.stdout.write("{}, ".format('*'))
+                # "CollectionCode",  # 'type'
+                sys.stdout.write("{}, ".format('|'.join(rule_dict.get('type', '*'))))
+                # "CallNumber",  # 'callnum'
+                sys.stdout.write("{}, ".format('|'.join(rule_dict.get('callnum', '*'))))
+                # "SortBin",
+                sys.stdout.write("{}, ".format('*'))
+                # "BranchId",
+                sys.stdout.write("{}, ".format('*'))
+                # "LibraryId", ## This may change because the user can specify a library on command line.
+                sys.stdout.write("{}, ".format('*'))
+                # "CheckInResult",
+                sys.stdout.write("{}, ".format('*'))
+                # "CustomTagData",
+                sys.stdout.write("{}, ".format('*'))
+                # "DetectionSource",
+                sys.stdout.write("{}{}\n".format('*', '}'))
 
 
 # Staff should be given a spreadsheet whose first sheet includes the header 'Count, Locations, iTypes, Bin #".
@@ -620,7 +655,5 @@ if __name__ == "__main__":
         sorter_configurator.write_config_file(xml_config)
     if args.write_csv:
         csv_path_file = args.write_csv
-        # TODO: Test and report if the sheet already exists and add a new suffix to it to
-        #  make the sheet name unique.
         sorter_configurator.write_matrix_to_csv(csv_path_file)
     sorter_configurator.report()
